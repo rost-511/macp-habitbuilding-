@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from "@clerk/clerk-react";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
 ───────────────────────────────────────────────────────────────────────────── */
@@ -1522,6 +1522,19 @@ function Settings({ profile, setProfile, onReset }) {
    LANDING
 ───────────────────────────────────────────────────────────────────────────── */
 function Landing({ onStart }) {
+  const { isSignedIn } = useAuth(); // Checks if a user is logged in
+  const { openSignIn } = useClerk(); // Opens the popup modal dynamically
+
+  const handleAssessmentClick = () => {
+    if (!isSignedIn) {
+      // Force open the login modal if they are logged out
+      openSignIn({ mode: "modal" });
+    } else {
+      // Proceed to the assessment if they are already logged in!
+      onStart();
+    }
+  };
+
   return (
     <div className="land">
       {/* --- CLERK AUTHENTICATION HEADER (FIXED POSITION) --- */}
@@ -1550,9 +1563,9 @@ function Landing({ onStart }) {
           <span key={f} className="fw-badge">{f}</span>
         ))}
       </div>
-      <button className="land-cta fu fu4" onClick={onStart}>
-        Begin Your Assessment →
-      </button>
+      <button className="land-cta fu fu4" onClick={handleAssessmentClick}>
+  Begin Your Assessment →
+</button>
       <div className="fu fu5" style={{fontFamily:"var(--font-mono)",fontSize:".62rem",letterSpacing:".1em",color:"var(--text-dim)",marginTop:8}}>
         Takes 3 minutes · Personalized by Claude AI · No fluff
       </div>
