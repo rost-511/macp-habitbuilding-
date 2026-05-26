@@ -573,37 +573,32 @@ function fmtSecs(s) {
 ───────────────────────────────────────────────────────────────────────────── */
 async function streamClaude(prompt, onChunk, onDone, onError) {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({
-        model:"claude-sonnet-4-20250514",
-        max_tokens:1000,
-        stream:true,
-        messages:[{ role:"user", content:prompt }],
-      }),
+    const res = await fetch("/api/generate-plan", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ prompt }),
     });
-    const reader = res.body.getReader();
-    const dec = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += dec.decode(value, { stream:true });
-      const lines = buf.split("\n");
-      buf = lines.pop();
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data==="[DONE]") { onDone(); return; }
-        try {
-          const p = JSON.parse(data);
-          if (p.type==="content_block_delta" && p.delta?.text) onChunk(p.delta.text);
-        } catch {}
-      }
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
+      throw new Error(
+        errorData?.details || errorData?.error || "Failed to generate plan"
+      );
     }
+
+    const data = await res.json();
+
+    if (!data.text) {
+      throw new Error("No plan text returned from API");
+    }
+
+    onChunk(data.text);
     onDone();
-  } catch(e) { onError(e.message); }
+  } catch (e) {
+    onError(e instanceof Error ? e.message : String(e));
+  }
 }
 
 function buildPlanPrompt(profile) {
