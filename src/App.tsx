@@ -1525,7 +1525,7 @@ function Landing({ onStart }) {
   return (
     <div className="land">
       {/* --- CLERK AUTHENTICATION HEADER (FIXED POSITION) --- */}
-      <header style={{ position: 'fixed', top: '8px', right: '16px', zIndex: 100 }}>
+      <header style={{ position: 'absolute', top: '8px', right: '16px', zIndex: 100 }}>
         <SignedOut>
           <SignInButton mode="modal">
             <button style={{ padding: '8px 16px', background: '#e2b714', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
