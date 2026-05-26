@@ -50,3 +50,27 @@ export async function completeOnboarding(
 
   return data;
 }
+
+export async function saveCurrentPlan(
+  supabase: SupabaseClient,
+  plan: Record<string, unknown>
+) {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ current_plan: plan })
+    .select()
+    .single();
+
+  if (error) throw error;
+
+  try {
+    await supabase.from("change_log").insert({
+      change_type: "plan_generated",
+      after_data: plan,
+    });
+  } catch {
+    // not fatal
+  }
+
+  return data;
+}

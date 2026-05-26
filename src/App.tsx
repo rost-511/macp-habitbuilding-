@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from "@clerk/clerk-react";
 import { useSupabase } from "./lib/useSupabase";
-import { getMyProfile, completeOnboarding } from "./lib/userData";
+import { getMyProfile, completeOnboarding, saveCurrentPlan } from "./lib/userData";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
 ───────────────────────────────────────────────────────────────────────────── */
@@ -595,7 +595,7 @@ async function streamClaude(prompt, onChunk, onDone, onError) {
     }
 
     onChunk(data.text);
-    onDone();
+onDone(data.text);
   } catch (e) {
     onError(e instanceof Error ? e.message : String(e));
   }
@@ -926,10 +926,11 @@ function Wizard({ onComplete }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    GENERATING SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
-function Generating({ profile, onReady }) {
+function Generating({ profile, onReady, supabase, onPlanGenerated }) {
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
+  const [saving, setSaving] = useState(false);
   const started = useRef(false);
 
   useEffect(() => {
@@ -938,7 +939,27 @@ function Generating({ profile, onReady }) {
     streamClaude(
       buildPlanPrompt(profile),
       chunk => setText(t=>t+chunk),
-      () => setDone(true),
+      async (fullText) => {
+        setDone(true);
+      
+        const generatedPlan = {
+          aiPlanText: fullText,
+          generatedAt: new Date().toISOString(),
+          profileSnapshot: profile,
+        };
+      
+        setSaving(true);
+      
+        try {
+          await saveCurrentPlan(supabase, generatedPlan);
+          onPlanGenerated(generatedPlan);
+        } catch (e) {
+          console.error("Failed to save plan:", e);
+          onPlanGenerated(generatedPlan);
+        } finally {
+          setSaving(false);
+        }
+      },
       e => setErr(e)
     );
   }, []);
@@ -983,11 +1004,17 @@ function Generating({ profile, onReady }) {
       </div>
 
       <div className="btn-row">
-        {done && (
-          <button className="btn btn-amber" onClick={onReady}>
-            Open My Dashboard →
-          </button>
-        )}
+      {done && !saving && (
+  <button className="btn btn-amber" onClick={onReady}>
+    Open My Dashboard →
+  </button>
+)}
+
+{done && saving && (
+  <button className="btn btn-amber" disabled style={{ opacity: 0.6 }}>
+    Saving your plan…
+  </button>
+)}
       </div>
     </div>
   );
@@ -996,7 +1023,7 @@ function Generating({ profile, onReady }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    DASHBOARD
 ───────────────────────────────────────────────────────────────────────────── */
-function Dashboard({ profile, setProfile }) {
+function Dashboard({ profile, setProfile, plan = null }) {
   const tier = tierFor(profile.week || 1);
   const timeline = makeTimeline(profile);
   const nowMin = nowMinutes();
@@ -1166,7 +1193,32 @@ function Dashboard({ profile, setProfile }) {
                 </div>
               </div>
             </div>
+            {plan?.aiPlanText && (
+  <div className="card fu fu3" style={{ marginBottom: 16 }}>
+    <div className="card-hd">
+      <div className="card-hd-l">
+        <span className="card-icon">✦</span>
+        <span className="card-title">Your AI-Generated MACP Plan</span>
+      </div>
+    </div>
 
+    <div className="card-body">
+      <div
+        style={{
+          fontFamily: "var(--font-mono)",
+          fontSize: ".78rem",
+          lineHeight: 1.75,
+          color: "var(--text-mid)",
+          whiteSpace: "pre-wrap",
+          maxHeight: 340,
+          overflowY: "auto",
+        }}
+      >
+        {plan.aiPlanText}
+      </div>
+    </div>
+  </div>
+)}
             {/* Habit stack */}
             <div className="card fu fu4">
               <div className="card-hd">
@@ -1593,25 +1645,32 @@ function Landing({
 ───────────────────────────────────────────────────────────────────────────── */
 export default function App() {
   const [screen, setScreen] = useState("landing");
-  const [profile, setProfile] = useState(null);
+const [profile, setProfile] = useState<any>(null);
+const [plan, setPlan] = useState<any>(null);
+const [booting, setBooting] = useState(true);
 
   const supabase = useSupabase();
   const { isLoaded, isSignedIn } = useAuth();
 
   useEffect(() => {
     async function checkSavedUser() {
-      if (!isLoaded || !isSignedIn) return;
-
+      if (!isLoaded) return;
+  
+      if (!isSignedIn) {
+        setBooting(false);
+        return;
+      }
+  
       try {
         const savedProfile = await getMyProfile(supabase);
-
+  
         if (savedProfile?.onboarding_completed) {
           setProfile(savedProfile.onboarding_answers);
-        
+  
           const hasSavedPlan =
             savedProfile.current_plan &&
             Object.keys(savedProfile.current_plan).length > 0;
-        
+  
           if (hasSavedPlan) {
             setPlan(savedProfile.current_plan);
             setScreen("dashboard");
@@ -1621,9 +1680,11 @@ export default function App() {
         }
       } catch (error) {
         console.error("Failed to load saved user:", error);
+      } finally {
+        setBooting(false);
       }
     }
-
+  
     checkSavedUser();
   }, [isLoaded, isSignedIn, supabase]);
 
@@ -1638,6 +1699,9 @@ export default function App() {
       alert("Your assessment could not be saved. Please try again.");
     }
   };
+  const handlePlanGenerated = (generatedPlan) => {
+    setPlan(generatedPlan);
+  };
   const handlePlanReady      = ()  => setScreen("dashboard");
   const handleReset          = ()  => { setProfile(null); setScreen("landing"); };
 
@@ -1646,7 +1710,22 @@ export default function App() {
     { id:"review",    label:"Weekly Review" },
     { id:"settings",  label:"Profile & Export" },
   ] : [];
-
+  if (booting) {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <div
+          className="app-shell grain"
+          style={{
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <div>Loading MACP…</div>
+        </div>
+      </>
+    );
+  }
   return (
     <>
       <style>{STYLES}</style>
@@ -1680,8 +1759,17 @@ export default function App() {
   />
 )}
           {screen==="wizard"     && <Wizard onComplete={handleWizardComplete}/>}
-          {screen==="generating" && <Generating profile={profile} onReady={handlePlanReady}/>}
-          {screen==="dashboard"  && profile && <Dashboard profile={profile} setProfile={setProfile}/>}
+          {screen==="generating" && (
+  <Generating
+    profile={profile}
+    onReady={handlePlanReady}
+    supabase={supabase}
+    onPlanGenerated={handlePlanGenerated}
+  />
+)}
+          {screen==="dashboard" && profile && (
+  <Dashboard profile={profile} setProfile={setProfile} plan={plan} />
+)}
           {screen==="review"     && profile && <WeeklyReview profile={profile}/>}
           {screen==="settings"   && profile && <Settings profile={profile} setProfile={setProfile} onReset={handleReset}/>}
         </div>
