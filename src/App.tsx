@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/clerk-react";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
 ───────────────────────────────────────────────────────────────────────────── */
@@ -1524,6 +1524,20 @@ function Settings({ profile, setProfile, onReset }) {
 function Landing({ onStart }) {
   return (
     <div className="land">
+      {/* --- CLERK AUTHENTICATION HEADER (FIXED POSITION) --- */}
+      <header style={{ position: 'fixed', top: '8px', right: '16px', zIndex: 100 }}>
+        <SignedOut>
+          <SignInButton mode="modal">
+            <button style={{ padding: '8px 16px', background: '#e2b714', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+              Sign In
+            </button>
+          </SignInButton>
+        </SignedOut>
+        <SignedIn>
+          <UserButton afterSignOutUrl="/" />
+        </SignedIn>
+      </header>
+      {/* ------------------------------------ */}
       <div className="land-eyebrow fu">M · A · C · P SYSTEM</div>
       <h1 className="land-h1 fu fu1">
         Turn your schedule<br/>into a <em>compounding</em><br/>habit machine
