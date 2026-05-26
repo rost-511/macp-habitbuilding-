@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from "@clerk/clerk-react";
+import { useSupabase } from "./lib/useSupabase";
+import { getMyProfile, completeOnboarding } from "./lib/userData";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
 ───────────────────────────────────────────────────────────────────────────── */
@@ -1521,16 +1523,34 @@ function Settings({ profile, setProfile, onReset }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    LANDING
 ───────────────────────────────────────────────────────────────────────────── */
-function Landing({ onStart }) {
+function Landing({
+  onStart,
+  onDashboard = () => {},
+}: {
+  onStart: () => void;
+  onDashboard?: () => void;
+}) {
   const { isSignedIn } = useAuth(); // Checks if a user is logged in
   const { openSignIn } = useClerk(); // Opens the popup modal dynamically
+  const supabase = useSupabase();
 
-  const handleAssessmentClick = () => {
+  const handleAssessmentClick = async () => {
     if (!isSignedIn) {
-      // Force open the login modal if they are logged out
       openSignIn({ mode: "modal" });
-    } else {
-      // Proceed to the assessment if they are already logged in!
+      return;
+    }
+  
+    try {
+      const profile = await getMyProfile(supabase);
+  
+      if (profile?.onboarding_completed) {
+        onDashboard();
+        return;
+      }
+  
+      onStart();
+    } catch (error) {
+      console.error("Failed to check profile:", error);
       onStart();
     }
   };
@@ -1580,7 +1600,49 @@ export default function App() {
   const [screen, setScreen] = useState("landing");
   const [profile, setProfile] = useState(null);
 
-  const handleWizardComplete = (p) => { setProfile(p); setScreen("generating"); };
+  const supabase = useSupabase();
+  const { isLoaded, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    async function checkSavedUser() {
+      if (!isLoaded || !isSignedIn) return;
+
+      try {
+        const savedProfile = await getMyProfile(supabase);
+
+        if (savedProfile?.onboarding_completed) {
+          setProfile(savedProfile.onboarding_answers);
+        
+          const hasSavedPlan =
+            savedProfile.current_plan &&
+            Object.keys(savedProfile.current_plan).length > 0;
+        
+          if (hasSavedPlan) {
+            setPlan(savedProfile.current_plan);
+            setScreen("dashboard");
+          } else {
+            setScreen("generating");
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load saved user:", error);
+      }
+    }
+
+    checkSavedUser();
+  }, [isLoaded, isSignedIn, supabase]);
+
+  const handleWizardComplete = async (p) => {
+    setProfile(p);
+  
+    try {
+      await completeOnboarding(supabase, p);
+      setScreen("generating");
+    } catch (error) {
+      console.error("Failed to save onboarding:", error);
+      alert("Your assessment could not be saved. Please try again.");
+    }
+  };
   const handlePlanReady      = ()  => setScreen("dashboard");
   const handleReset          = ()  => { setProfile(null); setScreen("landing"); };
 
@@ -1616,7 +1678,12 @@ export default function App() {
 
         {/* Page */}
         <div className="page">
-          {screen==="landing"    && <Landing onStart={()=>setScreen("wizard")}/>}
+        {screen==="landing" && (
+  <Landing
+    onStart={() => setScreen("wizard")}
+    onDashboard={() => setScreen("dashboard")}
+  />
+)}
           {screen==="wizard"     && <Wizard onComplete={handleWizardComplete}/>}
           {screen==="generating" && <Generating profile={profile} onReady={handlePlanReady}/>}
           {screen==="dashboard"  && profile && <Dashboard profile={profile} setProfile={setProfile}/>}
