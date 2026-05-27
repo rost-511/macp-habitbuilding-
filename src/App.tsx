@@ -1148,6 +1148,7 @@ function Dashboard({ profile, setProfile, plan = null, supabase, userId }) {
     streak: 0,
     bestPct: 0,
     savedDays: 0,
+    weekPcts: [0, 0, 0, 0, 0, 0, 0],
   });
   
   const dayPct = (row: any) => {
@@ -1213,12 +1214,13 @@ function Dashboard({ profile, setProfile, plan = null, supabase, userId }) {
           ? Math.max(...rows.map((row: any) => dayPct(row)))
           : 0;
   
-        setAnalytics({
-          weekCompletion,
-          streak,
-          bestPct,
-          savedDays: rows.length,
-        });
+          setAnalytics({
+            weekCompletion,
+            streak,
+            bestPct,
+            savedDays: rows.length,
+            weekPcts,
+          });
       } catch (error) {
         console.error("Failed to load dashboard analytics:", error);
       }
@@ -1228,7 +1230,12 @@ function Dashboard({ profile, setProfile, plan = null, supabase, userId }) {
   }, [supabase, userId]);
   const doneCount = Object.values(checked).filter(Boolean).length;
   const pct = habits.length ? Math.round((doneCount/habits.length)*100) : 0;
-  const streak = [true,true,true,false,true,true,false];
+  const weekDots =
+  analytics.weekPcts?.length === 7
+    ? analytics.weekPcts
+    : [0, 0, 0, 0, 0, 0, 0];
+
+const streak = weekDots.map((pct) => pct > 0);
 
   const toggleHabit = (id) => {
     const wasChecked = checked[id];
