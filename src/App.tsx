@@ -1143,6 +1143,89 @@ function Dashboard({ profile, setProfile, plan = null, supabase, userId }) {
   
     loadTodayProgress();
   }, [supabase, userId]);
+  const [analytics, setAnalytics] = useState({
+    weekCompletion: 0,
+    streak: 0,
+    bestPct: 0,
+    savedDays: 0,
+  });
+  
+  const dayPct = (row: any) => {
+    if (!row) return 0;
+  
+    const habits = row.habits_snapshot || [];
+    const checked = row.checked || {};
+    const total = habits.length || Object.keys(checked).length || 0;
+  
+    if (!total) return 0;
+  
+    const done = Object.values(checked).filter(Boolean).length;
+    return Math.round((done / total) * 100);
+  };
+  
+  useEffect(() => {
+    async function loadDashboardAnalytics() {
+      if (!userId) return;
+  
+      try {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+  
+        const rows = await getProgressMonth(supabase, userId, year, month);
+  
+        const byDate: Record<string, any> = {};
+        rows.forEach((row: any) => {
+          byDate[row.progress_date] = row;
+        });
+  
+        const today = new Date();
+        const todayKey = today.toISOString().slice(0, 10);
+  
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+  
+        const weekDays = Array.from({ length: 7 }).map((_, i) => {
+          const d = new Date(weekStart);
+          d.setDate(weekStart.getDate() + i);
+          return d.toISOString().slice(0, 10);
+        });
+  
+        const weekPcts = weekDays.map((date) => dayPct(byDate[date]));
+        const weekCompletion = Math.round(
+          weekPcts.reduce((sum, n) => sum + n, 0) / weekPcts.length
+        );
+  
+        let streak = 0;
+        const cursor = new Date(today);
+  
+        while (true) {
+          const key = cursor.toISOString().slice(0, 10);
+          const pct = dayPct(byDate[key]);
+  
+          if (pct <= 0) break;
+  
+          streak += 1;
+          cursor.setDate(cursor.getDate() - 1);
+        }
+  
+        const bestPct = rows.length
+          ? Math.max(...rows.map((row: any) => dayPct(row)))
+          : 0;
+  
+        setAnalytics({
+          weekCompletion,
+          streak,
+          bestPct,
+          savedDays: rows.length,
+        });
+      } catch (error) {
+        console.error("Failed to load dashboard analytics:", error);
+      }
+    }
+  
+    loadDashboardAnalytics();
+  }, [supabase, userId]);
   const doneCount = Object.values(checked).filter(Boolean).length;
   const pct = habits.length ? Math.round((doneCount/habits.length)*100) : 0;
   const streak = [true,true,true,false,true,true,false];
@@ -1277,21 +1360,25 @@ const frogDesc =
           </div>
           <div className="stat">
             <div className="stat-lbl">Current Week</div>
-            <div className="stat-val">{profile.week||1}<span className="stat-unit">/ 12</span></div>
-            <div className="stat-note">{tier.label.split("·")[0].trim()}</div>
+            <div className="stat-val">{analytics.weekCompletion}<span className="stat-unit">%</span></div>
+<div className="stat-note pos">Weekly average</div>
           </div>
           <div className="stat">
             <div className="stat-lbl">Streak</div>
-            <div className="stat-val">5<span className="stat-unit">days</span></div>
-            <div className="stat-note pos">↑ Personal best</div>
+            <div className="stat-val">{analytics.streak}<span className="stat-unit">days</span></div>
+<div className={`stat-note ${analytics.streak > 0 ? "pos" : ""}`}>
+  {analytics.streak > 0 ? "Keep it alive" : "Start today"}
+</div>
           </div>
           <div className="stat">
-            <div className="stat-lbl">Frog Task</div>
-            <div className="stat-val" style={{fontSize:"1.6rem",color:frogDone?"var(--green)":"var(--amber)"}}>
-              {frogDone?"Done ✓":"Pending"}
-            </div>
-            <div className="stat-note">{frogDone?"First thing first":"Eat it next"}</div>
-          </div>
+  <div className="stat-lbl">Personal Best</div>
+  <div className="stat-val">
+    {analytics.bestPct}<span className="stat-unit">%</span>
+  </div>
+  <div className="stat-note pos">
+    {analytics.savedDays} saved days this month
+  </div>
+</div>
         </div>
 
         {/* Main grid */}
