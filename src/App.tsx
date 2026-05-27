@@ -1151,6 +1151,7 @@ const [celebrate, setCelebrate] = useState(false);
   
     loadTodayProgress();
   }, [supabase, userId]);
+  const [analyticsReady, setAnalyticsReady] = useState(false);
   const [analytics, setAnalytics] = useState({
     weekCompletion: 0,
     streak: 0,
@@ -1174,7 +1175,12 @@ const [celebrate, setCelebrate] = useState(false);
   
   useEffect(() => {
     async function loadDashboardAnalytics() {
-      if (!userId) return;
+      if (!userId) {
+        setAnalyticsReady(true);
+        return;
+      }
+      
+      setAnalyticsReady(false);
   
       try {
         const now = new Date();
@@ -1229,13 +1235,41 @@ const [celebrate, setCelebrate] = useState(false);
             savedDays: rows.length,
             weekPcts,
           });
-      } catch (error) {
-        console.error("Failed to load dashboard analytics:", error);
-      }
+        } catch (error) {
+          console.error("Failed to load dashboard analytics:", error);
+        } finally {
+          setAnalyticsReady(true);
+        }
     }
   
     loadDashboardAnalytics();
   }, [supabase, userId]);
+  if (!progressReady || !analyticsReady) {
+    return (
+      <div className="dash">
+        <div className="dash-top fu">
+          <div>
+            <div className="dash-greet">
+              Loading <span>Dashboard</span>
+            </div>
+            <div className="dash-date">Syncing your saved progress…</div>
+          </div>
+        </div>
+  
+        <div className="card fu fu1" style={{ padding: 28 }}>
+          <div className="card-hd">
+            <div className="card-hd-l">
+              <span className="card-icon">◌</span>
+              <span className="card-title">Restoring today’s progress</span>
+            </div>
+          </div>
+          <div className="card-body" style={{ color: "var(--text-mid)" }}>
+            Loading habits, frog task, energy check-in, and analytics.
+          </div>
+        </div>
+      </div>
+    );
+  }
   const doneCount = Object.values(checked).filter(Boolean).length;
   const pct = habits.length ? Math.round((doneCount/habits.length)*100) : 0;
   const weekDots =
