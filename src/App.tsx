@@ -2096,9 +2096,23 @@ function Landing({
       <header style={{ position: 'absolute', top: '8px', right: '16px', zIndex: 100 }}>
         <SignedOut>
           <SignInButton mode="modal">
-            <button style={{ padding: '8px 16px', background: '#e2b714', color: '#000', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-              Sign In
-            </button>
+          <button
+  style={{
+    background: "var(--amber)",
+    color: "#07080a",
+    border: "1px solid rgba(212,146,42,0.55)",
+    borderRadius: "var(--r)",
+    padding: "8px 16px",
+    fontFamily: "var(--font-body)",
+    fontSize: ".86rem",
+    fontWeight: 600,
+    letterSpacing: ".03em",
+    cursor: "pointer",
+    boxShadow: "0 0 18px rgba(212,146,42,0.22)",
+  }}
+>
+  Sign In
+</button>
           </SignInButton>
         </SignedOut>
         <SignedIn>
