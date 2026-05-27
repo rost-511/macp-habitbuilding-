@@ -44,7 +44,20 @@ const STYLES = `
   --shadow-sm:0 2px 12px rgba(0,0,0,0.4);
 }
 
-html,body,#root{height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body)}
+html{
+  height:100%;
+  background:var(--bg);
+  overflow-y:scroll;
+  scrollbar-gutter:stable;
+}
+
+body,#root{
+  min-height:100%;
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--font-body);
+}
 
 /* scrollbar */
 ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
@@ -70,6 +83,9 @@ html,body,#root{height:100%;background:var(--bg);color:var(--text);font-family:v
 @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 
 .fu{animation:fadeUp .45s cubic-bezier(.22,.68,0,1.2) both}
+.tab-fu{animation:tabFade .28s ease-out both;will-change:opacity}
+@keyframes tabFade{from{opacity:0}to{opacity:1}}
+.tab-clean .fu{animation:none!important}
 .fu1{animation-delay:.06s}.fu2{animation-delay:.13s}.fu3{animation-delay:.20s}.fu4{animation-delay:.27s}.fu5{animation-delay:.34s}
 .fi{animation:fadeIn .35s ease both}
 .si{animation:slideIn .35s cubic-bezier(.22,.68,0,1.2) both}
@@ -1340,7 +1356,7 @@ const frogDesc =
         </div>
       )}
 
-      <div className="dash">
+<div className="dash tab-fu tab-clean">
         {/* Header */}
         <div className="dash-top fu">
           <div>
@@ -1694,7 +1710,7 @@ function CalendarPage({ supabase, userId }) {
   const selectedPct = completionFor(selected);
 
   return (
-    <div className="dash">
+    <div className="dash tab-fu tab-clean">
       <div className="dash-top fu">
         <div>
           <div className="dash-greet">
@@ -1966,7 +1982,7 @@ function WeeklyReview({ profile, plan = null }) {
     });
 
   return (
-    <div className="rev">
+    <div className="rev tab-fu">
       <div className="wiz-step">WEEKLY REVIEW · WEEK {profile.week||1}</div>
       <h2 className="rev-h1">How Was This Week?</h2>
       <p className="rev-sub">
@@ -2086,7 +2102,7 @@ function Settings({ profile, setProfile, onReset }) {
   };
 
   return (
-    <div className="set">
+    <div className="set tab-fu">
       <div className="wiz-step">SETTINGS & PROFILE</div>
       <h2 className="set-h1">Your MACP Profile</h2>
       <p className="set-sub">Adjust your week, tier, and export your plan at any time.</p>
