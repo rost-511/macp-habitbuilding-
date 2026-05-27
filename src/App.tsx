@@ -1097,7 +1097,8 @@ function Dashboard({ profile, setProfile, plan = null, supabase, userId }) {
   const [frogDone, setFrogDone] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [energy, setEnergy] = useState(null);
-  const [celebrate, setCelebrate] = useState(false);
+const [progressReady, setProgressReady] = useState(false);
+const [celebrate, setCelebrate] = useState(false);
   const [newHabit, setNewHabit] = useState({ name:"", tag:"work" });
   const [showAdd, setShowAdd] = useState(false);
   const progressSnapshot = () => ({
@@ -1126,7 +1127,12 @@ function Dashboard({ profile, setProfile, plan = null, supabase, userId }) {
   
   useEffect(() => {
     async function loadTodayProgress() {
-      if (!userId) return;
+      if (!userId) {
+        setProgressReady(true);
+        return;
+      }
+  
+      setProgressReady(false);
   
       try {
         const saved = await getTodayProgress(supabase, userId);
@@ -1138,6 +1144,8 @@ function Dashboard({ profile, setProfile, plan = null, supabase, userId }) {
         }
       } catch (error) {
         console.error("Failed to load daily progress:", error);
+      } finally {
+        setProgressReady(true);
       }
     }
   
@@ -1319,7 +1327,7 @@ const frogDesc =
         </div>
 
         {/* Energy check-in */}
-        {!energy && (
+        {progressReady && !energy && (
           <div className="card fu fu1" style={{marginBottom:20}}>
             <div className="card-hd">
               <div className="card-hd-l"><span className="card-icon">⚡</span><span className="card-title">Daily Check-in — How's your energy today?</span></div>
