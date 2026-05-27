@@ -602,7 +602,13 @@ onDone(data.text);
 }
 
 function buildPlanPrompt(profile) {
-  return `You are MACP — an elite habit-architecture system. Generate a highly personalized daily routine plan.
+  const [wH, wM] = (profile.wakeTime || "06:00").split(":").map(Number);
+  const t = (dh: number, dm = 0) => {
+    const total = wH * 60 + wM + dh * 60 + dm;
+    return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+  };
+
+  return `You are MACP — an elite habit-architecture AI. Analyze this user's profile and return ONLY a valid JSON object. No markdown, no code fences, no extra text — just the raw JSON.
 
 USER PROFILE:
 - Name: ${profile.name || "User"}
@@ -614,39 +620,52 @@ USER PROFILE:
 - Average energy level: ${profile.energyLevel}/10
 - Workout: ${profile.workout}
 - Goals: ${(profile.goals || []).join(", ")}
-- Habit categories chosen: ${(profile.categories || []).join(", ")}
+- Habit categories: ${(profile.categories || []).join(", ")}
 - Constraints: ${profile.constraints || "None"}
-- Main goal statement: ${profile.mainGoal || "Not specified"}
+- Main goal: ${profile.mainGoal || "Not specified"}
 
-FRAMEWORKS APPLIED: Atomic Habits (identity-based, habit stacking, cue-routine-reward), Eat That Frog (biggest task first), Drive (autonomy, mastery, purpose), Progressive Tier System.
+Return this exact JSON shape (all fields required):
+{
+  "aiPlanText": "<2–3 paragraph human-readable summary of the full plan — tier, identity, key habits, energy strategy>",
+  "dashboard": {
+    "identityStatement": "<one 'I am the type of person who...' sentence tailored to their goals>",
+    "frogTask": {
+      "title": "<their single most important daily task, specific to their goals, max 12 words>",
+      "description": "<one sentence: why this task, what outcome it drives>",
+      "category": "<one of: work | business | health | morning | evening>"
+    },
+    "habits": [
+      { "id": "h1", "name": "<specific actionable habit>", "tag": "<morning|work|health|business|evening>" },
+      { "id": "h2", "name": "<specific actionable habit>", "tag": "<morning|work|health|business|evening>" },
+      { "id": "h3", "name": "<specific actionable habit>", "tag": "<morning|work|health|business|evening>" },
+      { "id": "h4", "name": "<specific actionable habit>", "tag": "<morning|work|health|business|evening>" },
+      { "id": "h5", "name": "<specific actionable habit>", "tag": "<morning|work|health|business|evening>" }
+    ],
+    "dailyFlow": [
+      { "time": "${t(0)}", "title": "Wake + Hydrate", "description": "16 oz water before anything else" },
+      { "time": "${t(0, 15)}", "title": "<morning routine item>", "description": "<brief note>" },
+      { "time": "${t(1, 15)}", "title": "🐸 Eat the Frog", "description": "<their specific frog task>" },
+      { "time": "${profile.collegeHours ? `${t(2, 45)}` : `${t(2, 30)}`}", "title": "<work or study block>", "description": "<focus method or goal>" },
+      { "time": "${t(4, 30)}", "title": "Lunch + Recovery", "description": "Eat, short walk, no screens" },
+      { "time": "${t(6, 0)}", "title": "<afternoon block>", "description": "<task or goal>" },
+      { "time": "${t(9, 0)}", "title": "Evening Review", "description": "Rate the day, write tomorrow's frog" },
+      { "time": "${t(9, 30)}", "title": "Wind-down", "description": "Screen off, read, prepare for sleep" }
+    ],
+    "weeklyReviewFocus": "<the single most important metric or behaviour they should track weekly — be specific>",
+    "lowEnergyFallback": [
+      "<minimum habit 1 for bad days>",
+      "<minimum habit 2 for bad days>",
+      "<minimum habit 3 for bad days>"
+    ]
+  }
+}
 
-Generate the following — use EXACT section headers as shown:
-
-TIER ASSIGNMENT
-State Tier 1, 2, or 3 and explain why based on their current load and energy.
-
-DAILY FROG TASK
-Name their single most important task to do first. Make it specific to their goals.
-
-MORNING ROUTINE STACK
-3 specific habits with exact times (based on wake time ${profile.wakeTime}), keeping it tight.
-
-KEYSTONE HABIT STACK
-5 non-negotiable habits for their tier. Be specific and actionable, not generic.
-
-ENERGY MANAGEMENT
-How to ride their energy curve given their schedule. Name their peak hours.
-
-IDENTITY STATEMENT
-One powerful "I am the type of person who..." statement tailored to their goals.
-
-LOW-ENERGY FALLBACK
-Minimum viable version of the day (3 habits only) for bad days.
-
-WEEKLY REVIEW FOCUS
-What specific metric they should track weekly to know they're progressing.
-
-Keep it direct, specific, no generic advice. Maximum 320 words total.`;
+Rules:
+- habits tag must be exactly one of: morning, work, health, business, evening
+- dailyFlow time must be HH:MM 24-hour format
+- habits array must have exactly 5 items with unique ids h1–h5
+- Be specific to this user's actual goals — no generic advice
+- aiPlanText must be a plain string (no JSON inside it)`;
 }
 
 function buildReviewPrompt(profile, scores, notes, completionPct) {
@@ -942,17 +961,39 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
       async (fullText) => {
         setDone(true);
       
-        const generatedPlan = {
-          aiPlanText: fullText,
-          generatedAt: new Date().toISOString(),
-          profileSnapshot: profile,
-        };
+        let parsedPlan: Record<string, unknown>;
+      
+        try {
+          const cleaned = fullText
+            .replace(/^```json\s*/i, "")
+            .replace(/^```\s*/i, "")
+            .replace(/\s*```$/, "")
+            .trim();
+      
+          const parsed = JSON.parse(cleaned);
+      
+          parsedPlan = {
+            ...parsed,
+            aiPlanText:
+              typeof parsed.aiPlanText === "string"
+                ? parsed.aiPlanText
+                : fullText,
+            generatedAt: new Date().toISOString(),
+            profileSnapshot: profile,
+          };
+        } catch {
+          parsedPlan = {
+            aiPlanText: fullText,
+            generatedAt: new Date().toISOString(),
+            profileSnapshot: profile,
+          };
+        }
       
         setSaving(true);
       
         try {
-          await saveCurrentPlan(supabase, generatedPlan);
-          onPlanGenerated(generatedPlan);
+          await saveCurrentPlan(supabase, parsedPlan);
+          onPlanGenerated(parsedPlan);
         } catch (e) {
           console.error("Failed to save plan:", e);
           setErr("Plan generated, but failed to save. Do not refresh. Check Supabase/database.");
@@ -1026,10 +1067,24 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
 ───────────────────────────────────────────────────────────────────────────── */
 function Dashboard({ profile, setProfile, plan = null }) {
   const tier = tierFor(profile.week || 1);
-  const timeline = makeTimeline(profile);
+
+  const pd = (plan as any)?.dashboard ?? null;
+
+  const timeline = pd?.dailyFlow
+    ? pd.dailyFlow.map((f: any) => ({
+        time: f.time,
+        name: f.title,
+        note: f.description,
+      }))
+    : makeTimeline(profile);
+
   const nowMin = nowMinutes();
 
-  const [habits, setHabits] = useState(() => makeHabits(profile, tier.level));
+  const [habits, setHabits] = useState(() =>
+    pd?.habits?.length
+      ? pd.habits.map((h: any) => ({ ...h, tier: 1 }))
+      : makeHabits(profile, tier.level)
+  );
   const [checked, setChecked] = useState({});
   const [frogDone, setFrogDone] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
@@ -1062,7 +1117,15 @@ function Dashboard({ profile, setProfile, plan = null }) {
 
   const removeHabit = (id) => setHabits(hs=>hs.filter(h=>h.id!==id));
 
-  const frogTask = profile.businessGoal || profile.mainGoal || "Your highest-leverage task today";
+  const frogTask =
+  pd?.frogTask?.title ||
+  profile.businessGoal ||
+  profile.mainGoal ||
+  "Your highest-leverage task today";
+
+const frogDesc =
+  pd?.frogTask?.description ||
+  "This is the task that, when done, makes the rest of the day feel like a bonus. Brian Tracy's rule: do it before email, before social, before anything else.";
 
   return (
     <>
@@ -1131,7 +1194,11 @@ function Dashboard({ profile, setProfile, plan = null }) {
               <span style={{fontSize:"1.5rem"}}>🌊</span>
               <div>
                 <div style={{fontWeight:600,marginBottom:4}}>Low-Energy Mode Activated</div>
-                <div style={{fontSize:".83rem",color:"var(--text-mid)"}}>Today's minimum: <strong>Frog task + hydrate + 10-min journal</strong>. That's it. Showing up is the win.</div>
+                <div style={{fontSize:".83rem",color:"var(--text-mid)"}}>Today's minimum: <strong>
+  {pd?.lowEnergyFallback?.length
+    ? pd.lowEnergyFallback.join(" · ")
+    : "Frog task + hydrate + 10-min journal"}
+</strong>. That's it. Showing up is the win.</div>
               </div>
               <button onClick={()=>setEnergy(null)} style={{marginLeft:"auto",background:"none",border:"none",color:"var(--text-dim)",cursor:"pointer",fontSize:"1.1rem"}}>×</button>
             </div>
@@ -1178,8 +1245,7 @@ function Dashboard({ profile, setProfile, plan = null }) {
               <div className="frog-body">
                 <div className="frog-task">{frogTask}</div>
                 <div className="frog-why">
-                  This is the task that, when done, makes the rest of the day feel like a bonus. 
-                  Brian Tracy's rule: do it before email, before social, before anything else.
+                {frogDesc}.
                 </div>
                 <div className="frog-actions">
                   <button
@@ -1335,7 +1401,7 @@ function Dashboard({ profile, setProfile, plan = null }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
-function WeeklyReview({ profile }) {
+function WeeklyReview({ profile, plan = null }) {
   const [scores, setScores] = useState({ consistency:0, energy:0, focus:0 });
   const [notes, setNotes] = useState("");
   const [insight, setInsight] = useState("");
@@ -1369,7 +1435,25 @@ function WeeklyReview({ profile }) {
         Honest reflection is the compound interest of habit systems.<br/>
         <span style={{fontFamily:"var(--font-mono)",fontSize:".72rem",color:"var(--amber)"}}>{tier.label}</span>
       </p>
-
+      {(plan as any)?.dashboard?.weeklyReviewFocus && (
+  <div style={{
+    marginBottom:28,
+    padding:"14px 18px",
+    background:"var(--amber-dim)",
+    border:"1px solid rgba(212,146,42,0.3)",
+    borderRadius:"var(--r)",
+    fontFamily:"var(--font-mono)",
+    fontSize:".74rem",
+    lineHeight:1.6,
+    color:"var(--text)",
+  }}>
+    <span style={{color:"var(--amber)",fontWeight:600,letterSpacing:".08em"}}>
+      ✦ YOUR FOCUS THIS WEEK
+    </span>
+    <br/>
+    {(plan as any).dashboard.weeklyReviewFocus}
+  </div>
+)}
       {/* Completion stat */}
       <div className="rev-section">
         <div className="rev-sec-title">Habit Completion This Week</div>
@@ -1771,7 +1855,7 @@ const [booting, setBooting] = useState(true);
           {screen==="dashboard" && profile && (
   <Dashboard profile={profile} setProfile={setProfile} plan={plan} />
 )}
-          {screen==="review"     && profile && <WeeklyReview profile={profile}/>}
+          {screen==="review"     && profile && <WeeklyReview profile={profile} plan={plan} />}
           {screen==="settings"   && profile && <Settings profile={profile} setProfile={setProfile} onReset={handleReset}/>}
         </div>
       </div>
