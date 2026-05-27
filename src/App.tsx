@@ -2406,23 +2406,38 @@ const [booting, setBooting] = useState(true);
     onPlanGenerated={handlePlanGenerated}
   />
 )}
-          {screen==="dashboard" && profile && (
-  <Dashboard
-  profile={profile}
-  setProfile={setProfile}
-  plan={plan}
-  supabase={supabase}
-  userId={userId}
-/>
+          {profile && ["dashboard", "calendar", "review", "settings"].includes(screen) && (
+  <>
+    <div style={{ display: screen === "dashboard" ? "block" : "none" }}>
+      <Dashboard
+        profile={profile}
+        setProfile={setProfile}
+        plan={plan}
+        supabase={supabase}
+        userId={userId}
+      />
+    </div>
+
+    <div style={{ display: screen === "calendar" ? "block" : "none" }}>
+      <CalendarPage
+        supabase={supabase}
+        userId={userId}
+      />
+    </div>
+
+    <div style={{ display: screen === "review" ? "block" : "none" }}>
+      <WeeklyReview profile={profile} plan={plan} />
+    </div>
+
+    <div style={{ display: screen === "settings" ? "block" : "none" }}>
+      <Settings
+        profile={profile}
+        setProfile={setProfile}
+        onReset={handleReset}
+      />
+    </div>
+  </>
 )}
-{screen==="calendar" && profile && (
-  <CalendarPage
-    supabase={supabase}
-    userId={userId}
-  />
-)}
-          {screen==="review"     && profile && <WeeklyReview profile={profile} plan={plan} />}
-          {screen==="settings"   && profile && <Settings profile={profile} setProfile={setProfile} onReset={handleReset}/>}
         </div>
       </div>
     </>
