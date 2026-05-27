@@ -765,7 +765,7 @@ function ProgressRing({ pct }) {
   const r = 52, circ = 2*Math.PI*r;
   const dash = circ*(1-pct/100);
   return (
-    <div className="ring-wrap">
+    <div className="ring-wrap fu fu2">
       <svg width="120" height="120" className="ring-svg">
         <circle cx="60" cy="60" r={r} className="ring-bg"/>
         <circle cx="60" cy="60" r={r} className="ring-fg"
@@ -1073,6 +1073,28 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    DASHBOARD
 ───────────────────────────────────────────────────────────────────────────── */
+function MacpLoader() {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        background: "var(--bg)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "var(--amber)",
+        fontFamily: "var(--font-body)",
+        fontSize: ".9rem",
+        fontWeight: 700,
+        letterSpacing: ".02em",
+      }}
+    >
+      Loading MACP…
+    </div>
+  );
+}
 function Dashboard({ profile, setProfile, plan = null, supabase, userId }) { 
   const tier = tierFor(profile.week || 1);
 
@@ -1245,25 +1267,7 @@ const [celebrate, setCelebrate] = useState(false);
     loadDashboardAnalytics();
   }, [supabase, userId]);
   if (!progressReady || !analyticsReady) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          inset: 0,
-          zIndex: 9999,
-          background: "var(--bg)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "var(--amber)",
-          fontFamily: "var(--font-body)",
-          fontWeight: 700,
-          letterSpacing: ".02em",
-        }}
-      >
-        Loading MACP…
-      </div>
-    );
+    return <MacpLoader />;
   }
   const doneCount = Object.values(checked).filter(Boolean).length;
   const pct = habits.length ? Math.round((doneCount/habits.length)*100) : 0;
@@ -1561,7 +1565,7 @@ const frogDesc =
             <ProgressRing pct={pct}/>
 
             {/* Daily Timeline */}
-            <div className="card">
+            <div className="card fu fu3">
               <div className="card-hd">
                 <div className="card-hd-l"><span className="card-icon">⏱</span><span className="card-title">Daily Flow</span></div>
               </div>
@@ -2348,15 +2352,7 @@ const [booting, setBooting] = useState(true);
     return (
       <>
         <style>{STYLES}</style>
-        <div
-          className="app-shell grain"
-          style={{
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <div>Loading MACP…</div>
-        </div>
+        <MacpLoader />
       </>
     );
   }
