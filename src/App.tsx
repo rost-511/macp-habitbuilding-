@@ -955,7 +955,8 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
           onPlanGenerated(generatedPlan);
         } catch (e) {
           console.error("Failed to save plan:", e);
-          onPlanGenerated(generatedPlan);
+          setErr("Plan generated, but failed to save. Do not refresh. Check Supabase/database.");
+          return;
         } finally {
           setSaving(false);
         }

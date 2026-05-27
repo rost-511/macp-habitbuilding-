@@ -57,7 +57,12 @@ export async function saveCurrentPlan(
 ) {
   const { data, error } = await supabase
     .from("profiles")
-    .update({ current_plan: plan })
+    .upsert(
+      {
+        current_plan: plan,
+      },
+      { onConflict: "clerk_user_id" }
+    )
     .select()
     .single();
 
