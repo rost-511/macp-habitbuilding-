@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from "@clerk/clerk-react";
 import { useSupabase } from "./lib/useSupabase";
-import { getMyProfile, completeOnboarding, saveCurrentPlan } from "./lib/userData";
+import {
+  getMyProfile,
+  completeOnboarding,
+  saveCurrentPlan,
+  getTodayProgress,
+  saveTodayProgress,
+  getProgressMonth,
+  getProgressByDate,
+} from "./lib/userData";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
 ───────────────────────────────────────────────────────────────────────────── */
@@ -1065,7 +1073,7 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    DASHBOARD
 ───────────────────────────────────────────────────────────────────────────── */
-function Dashboard({ profile, setProfile, plan = null }) {
+function Dashboard({ profile, setProfile, plan = null, supabase, userId }) { 
   const tier = tierFor(profile.week || 1);
 
   const pd = (plan as any)?.dashboard ?? null;
@@ -1092,17 +1100,65 @@ function Dashboard({ profile, setProfile, plan = null }) {
   const [celebrate, setCelebrate] = useState(false);
   const [newHabit, setNewHabit] = useState({ name:"", tag:"work" });
   const [showAdd, setShowAdd] = useState(false);
-
+  const progressSnapshot = () => ({
+    habits_snapshot: habits,
+    plan_snapshot: plan || {},
+  });
+  
+  const persistProgress = async (next: {
+    checked?: Record<string, boolean>;
+    frog_done?: boolean;
+    energy?: string | null;
+  } = {}) => {
+    if (!userId) return;
+  
+    try {
+      await saveTodayProgress(supabase, userId, {
+        checked: next.checked ?? checked,
+        frog_done: next.frog_done ?? frogDone,
+        energy: next.energy ?? energy,
+        ...progressSnapshot(),
+      });
+    } catch (error) {
+      console.error("Failed to save daily progress:", error);
+    }
+  };
+  
+  useEffect(() => {
+    async function loadTodayProgress() {
+      if (!userId) return;
+  
+      try {
+        const saved = await getTodayProgress(supabase, userId);
+  
+        if (saved) {
+          setChecked(saved.checked || {});
+          setFrogDone(Boolean(saved.frog_done));
+          setEnergy(saved.energy || null);
+        }
+      } catch (error) {
+        console.error("Failed to load daily progress:", error);
+      }
+    }
+  
+    loadTodayProgress();
+  }, [supabase, userId]);
   const doneCount = Object.values(checked).filter(Boolean).length;
   const pct = habits.length ? Math.round((doneCount/habits.length)*100) : 0;
   const streak = [true,true,true,false,true,true,false];
 
   const toggleHabit = (id) => {
     const wasChecked = checked[id];
-    setChecked(c=>({...c,[id]:!c[id]}));
-    if (!wasChecked && doneCount+1 === habits.length) {
-      setTimeout(()=>setCelebrate(true), 300);
-      setTimeout(()=>setCelebrate(false), 3200);
+    const nextChecked = { ...checked, [id]: !checked[id] };
+  
+    setChecked(nextChecked);
+    persistProgress({ checked: nextChecked });
+  
+    const nextDoneCount = Object.values(nextChecked).filter(Boolean).length;
+  
+    if (!wasChecked && nextDoneCount === habits.length) {
+      setTimeout(() => setCelebrate(true), 300);
+      setTimeout(() => setCelebrate(false), 3200);
     }
   };
 
@@ -1133,7 +1189,11 @@ const frogDesc =
         <FocusMode
           task={frogTask}
           onExit={()=>setFocusMode(false)}
-          onDone={()=>{ setFrogDone(true); setFocusMode(false); }}
+          onDone={() => {
+            setFrogDone(true);
+            setFocusMode(false);
+            persistProgress({ frog_done: true });
+          }}
         />
       )}
       {celebrate && (
@@ -1180,7 +1240,10 @@ const frogDesc =
                   <button key={e.v}
                     className={`energy-btn ${energy===e.v?"sel":""}`}
                     style={energy===e.v?{borderColor:e.c,color:e.c,background:`${e.c}14`}:{}}
-                    onClick={()=>setEnergy(e.v)}>
+                    onClick={() => {
+                      setEnergy(e.v);
+                      persistProgress({ energy: e.v });
+                    }}>
                     {e.l}
                   </button>
                 ))}
@@ -1250,7 +1313,12 @@ const frogDesc =
                 <div className="frog-actions">
                   <button
                     className={`frog-done-btn ${frogDone?"done":""}`}
-                    onClick={()=>!frogDone&&setFrogDone(true)}
+                    onClick={() => {
+                      if (!frogDone) {
+                        setFrogDone(true);
+                        persistProgress({ frog_done: true });
+                      }
+                    }}
                   >{frogDone?"✓ Frog eaten!":"Mark Complete"}</button>
                   {!frogDone && (
                     <button className="focus-btn" onClick={()=>setFocusMode(true)}>
@@ -1397,7 +1465,342 @@ const frogDesc =
     </>
   );
 }
+/* ─────────────────────────────────────────────────────────────────────────────
+   CALENDAR PAGE
+───────────────────────────────────────────────────────────────────────────── */
+function CalendarPage({ supabase, userId }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const [cursor, setCursor] = useState(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const [rows, setRows] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(false);
 
+  const year = cursor.getFullYear();
+  const month = cursor.getMonth() + 1;
+
+  const loadMonth = useCallback(async () => {
+    if (!userId) return;
+
+    setLoading(true);
+    try {
+      const data = await getProgressMonth(supabase, userId, year, month);
+      setRows(data || []);
+    } catch (error) {
+      console.error("Failed to load progress month:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [supabase, userId, year, month]);
+
+  useEffect(() => {
+    loadMonth();
+  }, [loadMonth]);
+
+  const byDate = rows.reduce((acc, row) => {
+    acc[row.progress_date] = row;
+    return acc;
+  }, {});
+
+  const monthName = cursor.toLocaleDateString("en-US", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const firstDay = new Date(year, month - 1, 1);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const startOffset = (firstDay.getDay() + 6) % 7;
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    cells.push(new Date(year, month - 1, d));
+  }
+
+  const completionFor = (row) => {
+    if (!row) return 0;
+    const habits = row.habits_snapshot || [];
+    const checked = row.checked || {};
+    const total = habits.length || Object.keys(checked).length || 0;
+    if (!total) return 0;
+    const done = Object.values(checked).filter(Boolean).length;
+    return Math.round((done / total) * 100);
+  };
+
+  const selectDay = async (dateKey) => {
+    if (!userId) return;
+
+    try {
+      const data = await getProgressByDate(supabase, userId, dateKey);
+      setSelected(
+        data || {
+          progress_date: dateKey,
+          checked: {},
+          frog_done: false,
+          energy: null,
+          habits_snapshot: [],
+          plan_snapshot: {},
+        }
+      );
+    } catch (error) {
+      console.error("Failed to load day progress:", error);
+    }
+  };
+
+  const shiftMonth = (amount) => {
+    setSelected(null);
+    setCursor(new Date(year, month - 1 + amount, 1));
+  };
+
+  const selectedHabits = selected?.habits_snapshot || [];
+  const selectedChecked = selected?.checked || {};
+  const selectedPct = completionFor(selected);
+
+  return (
+    <div className="dash">
+      <div className="dash-top fu">
+        <div>
+          <div className="dash-greet">
+            Progress <span>Calendar</span>
+          </div>
+          <div className="dash-date">
+            Daily habit history · saved per day
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          <button className="btn btn-ghost" onClick={() => shiftMonth(-1)}>
+            ←
+          </button>
+          <div className="tier-pill">
+            <div className="tier-pip" style={{ background: "var(--amber)" }} />
+            <div className="tier-name">{monthName}</div>
+          </div>
+          <button className="btn btn-ghost" onClick={() => shiftMonth(1)}>
+            →
+          </button>
+        </div>
+      </div>
+
+      <div className="dgrid">
+        <div className="dleft">
+          <div className="card fu fu1">
+            <div className="card-hd">
+              <div className="card-hd-l">
+                <span className="card-icon">◌</span>
+                <span className="card-title">
+                  {loading ? "Loading month..." : "Monthly Progress"}
+                </span>
+              </div>
+            </div>
+
+            <div className="card-body">
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gap: 8,
+                  marginBottom: 10,
+                }}
+              >
+                {DAY_ABBRS.map((d) => (
+                  <div
+                    key={d}
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: ".62rem",
+                      color: "var(--text-dim)",
+                      textTransform: "uppercase",
+                      letterSpacing: ".1em",
+                      textAlign: "center",
+                      paddingBottom: 8,
+                    }}
+                  >
+                    {d}
+                  </div>
+                ))}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "repeat(7, 1fr)",
+                  gap: 8,
+                }}
+              >
+                {cells.map((date, i) => {
+                  if (!date) return <div key={`empty-${i}`} />;
+
+                  const dateKey = date.toISOString().slice(0, 10);
+                  const row = byDate[dateKey];
+                  const pct = completionFor(row);
+                  const isToday = dateKey === today;
+
+                  return (
+                    <button
+                      key={dateKey}
+                      onClick={() => selectDay(dateKey)}
+                      style={{
+                        minHeight: 86,
+                        borderRadius: "var(--r)",
+                        border: isToday
+                          ? "1px solid rgba(212,146,42,0.75)"
+                          : "1px solid var(--border)",
+                        background: row
+                          ? "var(--surface2)"
+                          : "rgba(255,255,255,0.015)",
+                        color: row ? "var(--text)" : "var(--text-dim)",
+                        cursor: "pointer",
+                        padding: 10,
+                        display: "flex",
+                        flexDirection: "column",
+                        justifyContent: "space-between",
+                        alignItems: "flex-start",
+                      }}
+                    >
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: ".72rem",
+                          color: isToday ? "var(--amber)" : "inherit",
+                        }}
+                      >
+                        {date.getDate()}
+                      </span>
+
+                      <span
+                        style={{
+                          width: 28,
+                          height: 28,
+                          borderRadius: "50%",
+                          background: row
+                            ? `conic-gradient(var(--amber) ${pct}%, var(--border2) 0)`
+                            : "var(--border)",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          alignSelf: "flex-end",
+                        }}
+                      >
+                        <span
+                          style={{
+                            width: 18,
+                            height: 18,
+                            borderRadius: "50%",
+                            background: "var(--surface)",
+                            display: "block",
+                          }}
+                        />
+                      </span>
+
+                      <span
+                        style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: ".58rem",
+                          color: row ? "var(--text-mid)" : "var(--text-dim)",
+                        }}
+                      >
+                        {row ? `${pct}%` : "—"}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="dright">
+          <div className="card fu fu2">
+            <div className="card-hd">
+              <div className="card-hd-l">
+                <span className="card-icon">✓</span>
+                <span className="card-title">Day Detail</span>
+              </div>
+            </div>
+
+            <div className="card-body">
+              {!selected && (
+                <div style={{ color: "var(--text-mid)", fontSize: ".86rem" }}>
+                  Click any day to inspect saved habit progress.
+                </div>
+              )}
+
+              {selected && (
+                <>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      color: "var(--amber)",
+                      fontSize: ".7rem",
+                      letterSpacing: ".12em",
+                      textTransform: "uppercase",
+                      marginBottom: 10,
+                    }}
+                  >
+                    {selected.progress_date}
+                  </div>
+
+                  <div className="ring-center" style={{ marginBottom: 18 }}>
+                    <div className="ring-pct">{selectedPct}%</div>
+                    <div className="ring-lbl">Completed</div>
+                  </div>
+
+                  <div className="info-row">
+                    <span className="info-lbl">Frog Task</span>
+                    <span className="info-val">
+                      {selected.frog_done ? "Done ✓" : "Not done"}
+                    </span>
+                  </div>
+
+                  <div className="info-row">
+                    <span className="info-lbl">Energy</span>
+                    <span className="info-val">
+                      {selected.energy || "Not logged"}
+                    </span>
+                  </div>
+
+                  <div style={{ marginTop: 18 }}>
+                    <div className="card-title" style={{ marginBottom: 10 }}>
+                      Habits
+                    </div>
+
+                    <div className="habit-list">
+                      {selectedHabits.length === 0 && (
+                        <div style={{ color: "var(--text-dim)", fontSize: ".82rem" }}>
+                          No saved habits for this day.
+                        </div>
+                      )}
+
+                      {selectedHabits.map((h) => {
+                        const done = Boolean(selectedChecked[h.id]);
+                        return (
+                          <div key={h.id} className="habit-row">
+                            <div className={`hcheck ${done ? "done" : ""}`}>
+                              {done ? "✓" : ""}
+                            </div>
+                            <div className={`hname ${done ? "done" : ""}`}>
+                              {h.name}
+                            </div>
+                            <span className={`htag htag-${h.tag || "work"}`}>
+                              {h.tag || "work"}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 /* ─────────────────────────────────────────────────────────────────────────────
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
@@ -1735,7 +2138,7 @@ const [plan, setPlan] = useState<any>(null);
 const [booting, setBooting] = useState(true);
 
   const supabase = useSupabase();
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
 
   useEffect(() => {
     async function checkSavedUser() {
@@ -1792,8 +2195,9 @@ const [booting, setBooting] = useState(true);
 
   const NAV = profile ? [
     { id:"dashboard", label:"Dashboard" },
-    { id:"review",    label:"Weekly Review" },
-    { id:"settings",  label:"Profile & Export" },
+    { id:"calendar", label:"Calendar" },
+    { id:"review", label:"Weekly Review" },
+    { id:"settings", label:"Profile & Export" },
   ] : [];
   if (booting) {
     return (
@@ -1853,7 +2257,19 @@ const [booting, setBooting] = useState(true);
   />
 )}
           {screen==="dashboard" && profile && (
-  <Dashboard profile={profile} setProfile={setProfile} plan={plan} />
+  <Dashboard
+  profile={profile}
+  setProfile={setProfile}
+  plan={plan}
+  supabase={supabase}
+  userId={userId}
+/>
+)}
+{screen==="calendar" && profile && (
+  <CalendarPage
+    supabase={supabase}
+    userId={userId}
+  />
 )}
           {screen==="review"     && profile && <WeeklyReview profile={profile} plan={plan} />}
           {screen==="settings"   && profile && <Settings profile={profile} setProfile={setProfile} onReset={handleReset}/>}

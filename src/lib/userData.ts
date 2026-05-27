@@ -79,3 +79,94 @@ export async function saveCurrentPlan(
 
   return data;
 }
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+export async function getTodayProgress(
+  supabase: SupabaseClient,
+  clerkUserId: string
+) {
+  const { data, error } = await supabase
+    .from("daily_progress")
+    .select("*")
+    .eq("clerk_user_id", clerkUserId)
+    .eq("progress_date", todayKey())
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function saveTodayProgress(
+  supabase: SupabaseClient,
+  clerkUserId: string,
+  payload: {
+    checked?: Record<string, boolean>;
+    frog_done?: boolean;
+    energy?: string | null;
+    habits_snapshot?: unknown[];
+    plan_snapshot?: Record<string, unknown> | null;
+  }
+) {
+  const { data, error } = await supabase
+    .from("daily_progress")
+    .upsert(
+      {
+        clerk_user_id: clerkUserId,
+        progress_date: todayKey(),
+        checked: payload.checked ?? {},
+        frog_done: payload.frog_done ?? false,
+        energy: payload.energy ?? null,
+        habits_snapshot: payload.habits_snapshot ?? [],
+        plan_snapshot: payload.plan_snapshot ?? {},
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "clerk_user_id,progress_date" }
+    )
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function getProgressMonth(
+  supabase: SupabaseClient,
+  clerkUserId: string,
+  year: number,
+  month: number
+) {
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endDate = new Date(year, month, 0);
+  const end = `${year}-${String(month).padStart(2, "0")}-${String(
+    endDate.getDate()
+  ).padStart(2, "0")}`;
+
+  const { data, error } = await supabase
+    .from("daily_progress")
+    .select("*")
+    .eq("clerk_user_id", clerkUserId)
+    .gte("progress_date", start)
+    .lte("progress_date", end)
+    .order("progress_date", { ascending: true });
+
+  if (error) throw error;
+  return data || [];
+}
+
+export async function getProgressByDate(
+  supabase: SupabaseClient,
+  clerkUserId: string,
+  date: string
+) {
+  const { data, error } = await supabase
+    .from("daily_progress")
+    .select("*")
+    .eq("clerk_user_id", clerkUserId)
+    .eq("progress_date", date)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data;
+}
