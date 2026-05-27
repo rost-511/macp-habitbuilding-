@@ -1966,7 +1966,7 @@ function WeeklyReview({ profile, plan = null }) {
     });
 
   return (
-    <div className="rev fu">
+    <div className="rev">
       <div className="wiz-step">WEEKLY REVIEW · WEEK {profile.week||1}</div>
       <h2 className="rev-h1">How Was This Week?</h2>
       <p className="rev-sub">
@@ -2086,7 +2086,7 @@ function Settings({ profile, setProfile, onReset }) {
   };
 
   return (
-    <div className="set fu">
+    <div className="set">
       <div className="wiz-step">SETTINGS & PROFILE</div>
       <h2 className="set-h1">Your MACP Profile</h2>
       <p className="set-sub">Adjust your week, tier, and export your plan at any time.</p>
