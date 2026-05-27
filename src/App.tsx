@@ -1246,27 +1246,22 @@ const [celebrate, setCelebrate] = useState(false);
   }, [supabase, userId]);
   if (!progressReady || !analyticsReady) {
     return (
-      <div className="dash">
-        <div className="dash-top fu">
-          <div>
-            <div className="dash-greet">
-              Loading <span>Dashboard</span>
-            </div>
-            <div className="dash-date">Syncing your saved progress…</div>
-          </div>
-        </div>
-  
-        <div className="card fu fu1" style={{ padding: 28 }}>
-          <div className="card-hd">
-            <div className="card-hd-l">
-              <span className="card-icon">◌</span>
-              <span className="card-title">Restoring today’s progress</span>
-            </div>
-          </div>
-          <div className="card-body" style={{ color: "var(--text-mid)" }}>
-            Loading habits, frog task, energy check-in, and analytics.
-          </div>
-        </div>
+      <div
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: 9999,
+          background: "var(--bg)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          color: "var(--amber)",
+          fontFamily: "var(--font-body)",
+          fontWeight: 700,
+          letterSpacing: ".02em",
+        }}
+      >
+        Loading MACP…
       </div>
     );
   }
