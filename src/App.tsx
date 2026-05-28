@@ -1661,10 +1661,17 @@ const [progressReady, setProgressReady] = useState(false);
 const [celebrate, setCelebrate] = useState(false);
   const [newHabit, setNewHabit] = useState({ name:"", tag:"work" });
   const [showAdd, setShowAdd] = useState(false);
-  const progressSnapshot = () => ({
-    habits_snapshot: habits,
-    plan_snapshot: plan || {},
-  });
+  const progressSnapshot = () => {
+    const activePlan = (plan || {}) as any;
+  
+    return {
+      habits_snapshot: habits,
+      plan_snapshot: activePlan,
+      plan_version: Number(activePlan.plan_version || activePlan.planVersion || 1),
+      plan_generated_at: activePlan.plan_generated_at || activePlan.generatedAt || null,
+      plan_reason: activePlan.plan_reason || null,
+    };
+  };
   
   const persistProgress = async (next: {
     checked?: Record<string, boolean>;

@@ -107,6 +107,9 @@ export async function saveTodayProgress(
     energy?: string | null;
     habits_snapshot?: unknown[];
     plan_snapshot?: Record<string, unknown> | null;
+    plan_version?: number | null;
+    plan_generated_at?: string | null;
+    plan_reason?: string | null;
   }
 ) {
   const { data, error } = await supabase
@@ -120,6 +123,9 @@ export async function saveTodayProgress(
         energy: payload.energy ?? null,
         habits_snapshot: payload.habits_snapshot ?? [],
         plan_snapshot: payload.plan_snapshot ?? {},
+        plan_version: payload.plan_version ?? null,
+        plan_generated_at: payload.plan_generated_at ?? null,
+        plan_reason: payload.plan_reason ?? null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "clerk_user_id,progress_date" }
