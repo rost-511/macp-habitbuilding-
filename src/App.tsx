@@ -559,6 +559,45 @@ body,#root{
   .set{
     padding-top:18px;
   }
+  .calendar-top{
+    justify-content:center;
+    text-align:center;
+    margin-bottom:24px;
+  }
+  
+  .calendar-top > div:first-child{
+    width:100%;
+  }
+  
+  .calendar-controls{
+    width:100%;
+    justify-content:center;
+  }
+  
+  .calendar-card{
+    width:100%;
+    margin-left:auto;
+    margin-right:auto;
+  }
+  
+  .calendar-card .card-body{
+    padding:14px;
+  }
+  
+  .calendar-weekdays,
+  .calendar-grid{
+    width:100%;
+    grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+    gap:5px !important;
+  }
+  
+  .calendar-day{
+    width:100%;
+    min-height:62px !important;
+    padding:6px !important;
+    border-radius:11px !important;
+    box-sizing:border-box;
+  }
   .stats{grid-template-columns:1fr 1fr}
   .dgrid{grid-template-columns:1fr}
   .dright{position:static}
@@ -1924,7 +1963,7 @@ function CalendarPage({ supabase, userId }) {
 
   return (
     <div className="dash tab-fu tab-clean">
-      <div className="dash-top fu">
+      <div className="dash-top fu calendar-top">
         <div>
           <div className="dash-greet">
             Progress <span>Calendar</span>
@@ -1934,7 +1973,7 @@ function CalendarPage({ supabase, userId }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <div className="calendar-controls" style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button className="btn btn-ghost" onClick={() => shiftMonth(-1)}>
             ←
           </button>
@@ -1950,7 +1989,7 @@ function CalendarPage({ supabase, userId }) {
 
       <div className="dgrid">
         <div className="dleft">
-          <div className="card fu fu1">
+        <div className="card fu fu1 calendar-card">
             <div className="card-hd">
               <div className="card-hd-l">
                 <span className="card-icon">◌</span>
@@ -1961,7 +2000,7 @@ function CalendarPage({ supabase, userId }) {
             </div>
 
             <div className="card-body">
-              <div
+            <div className="calendar-weekdays"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7, 1fr)",
@@ -1987,7 +2026,7 @@ function CalendarPage({ supabase, userId }) {
                 ))}
               </div>
 
-              <div
+              <div className="calendar-grid"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "repeat(7, 1fr)",
@@ -2004,8 +2043,9 @@ function CalendarPage({ supabase, userId }) {
 
                   return (
                     <button
-                      key={dateKey}
-                      onClick={() => selectDay(dateKey)}
+  className="calendar-day"
+  key={dateKey}
+  onClick={() => selectDay(dateKey)}
                       style={{
                         minHeight: 86,
                         borderRadius: "var(--r)",
