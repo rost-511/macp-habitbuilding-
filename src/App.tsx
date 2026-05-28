@@ -1420,7 +1420,7 @@ function Wizard({ onComplete, initialProfile = null }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    GENERATING SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
-function Generating({ profile, onReady, supabase, onPlanGenerated }) {
+function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan }) {
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
@@ -1436,6 +1436,19 @@ const started = useRef(false);
       chunk => setText(t=>t+chunk),
       async (fullText) => {
         setDone(true);
+      
+        const hasExistingPlan =
+          existingPlan &&
+          typeof existingPlan === "object" &&
+          Object.keys(existingPlan).length > 0;
+      
+        const previousPlanVersion = hasExistingPlan
+          ? Number(existingPlan.plan_version || existingPlan.planVersion || 1)
+          : 0;
+      
+        const nextPlanVersion = previousPlanVersion + 1;
+        const generatedAt = new Date().toISOString();
+        const planReason = hasExistingPlan ? "regenerated" : "initial";
       
         let parsedPlan: Record<string, unknown>;
       
@@ -1454,13 +1467,21 @@ const started = useRef(false);
               typeof parsed.aiPlanText === "string"
                 ? parsed.aiPlanText
                 : fullText,
-            generatedAt: new Date().toISOString(),
+                generatedAt,
+                plan_generated_at: generatedAt,
+                plan_version: nextPlanVersion,
+                plan_reason: planReason,
+                previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
             profileSnapshot: profile,
           };
         } catch {
           parsedPlan = {
             aiPlanText: fullText,
-            generatedAt: new Date().toISOString(),
+            generatedAt,
+plan_generated_at: generatedAt,
+plan_version: nextPlanVersion,
+plan_reason: planReason,
+previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
             profileSnapshot: profile,
           };
         }
@@ -3042,6 +3063,7 @@ const NAV = showAppNav
     onReady={handlePlanReady}
     supabase={supabase}
     onPlanGenerated={handlePlanGenerated}
+    existingPlan={plan}
   />
 )}
           {profile && ["dashboard", "calendar", "review", "settings"].includes(screen) && (
