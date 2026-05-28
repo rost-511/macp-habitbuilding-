@@ -55,6 +55,25 @@ export async function saveCurrentPlan(
   supabase: SupabaseClient,
   plan: Record<string, unknown>
 ) {
+  const planVersion = Number(plan.plan_version || plan.planVersion || 1);
+
+  const planGeneratedAt =
+    typeof plan.plan_generated_at === "string"
+      ? plan.plan_generated_at
+      : typeof plan.generatedAt === "string"
+      ? plan.generatedAt
+      : new Date().toISOString();
+
+  const planReason =
+    typeof plan.plan_reason === "string" ? plan.plan_reason : "initial";
+
+  const profileSnapshot =
+    plan.profileSnapshot &&
+    typeof plan.profileSnapshot === "object" &&
+    !Array.isArray(plan.profileSnapshot)
+      ? plan.profileSnapshot
+      : {};
+
   const { data, error } = await supabase
     .from("profiles")
     .upsert(
@@ -67,6 +86,25 @@ export async function saveCurrentPlan(
     .single();
 
   if (error) throw error;
+
+  try {
+    const { error: historyError } = await supabase
+      .from("plan_history")
+      .upsert(
+        {
+          plan_version: planVersion,
+          plan_reason: planReason,
+          plan_generated_at: planGeneratedAt,
+          plan,
+          profile_snapshot: profileSnapshot,
+        },
+        { onConflict: "clerk_user_id,plan_version" }
+      );
+
+    if (historyError) throw historyError;
+  } catch (historyError) {
+    console.error("Failed to save plan history:", historyError);
+  }
 
   try {
     await supabase.from("change_log").insert({
@@ -186,7 +224,12 @@ export async function resetMyAppData(
     .eq("clerk_user_id", clerkUserId);
 
   if (progressError) throw progressError;
+  const { error: historyError } = await supabase
+    .from("plan_history")
+    .delete()
+    .eq("clerk_user_id", clerkUserId);
 
+  if (historyError) throw historyError;
   const { data, error: profileError } = await supabase
     .from("profiles")
     .update({
