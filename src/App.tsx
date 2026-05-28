@@ -290,6 +290,85 @@ body,#root{
 .stat-note{font-size:.72rem;margin-top:5px;color:var(--text-dim)}
 .stat-note.pos{color:var(--green)}
 
+.current-plan-card{
+  margin-bottom:16px;
+  border-color:rgba(212,146,42,.18);
+  background:linear-gradient(135deg,rgba(212,146,42,.045),rgba(255,255,255,.014));
+}
+
+.current-plan-body{
+  padding:13px 16px;
+}
+
+.current-plan-top{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:10px;
+}
+
+.current-plan-eyebrow{
+  color:var(--amber);
+  font-family:var(--font-mono);
+  font-size:.56rem;
+  font-weight:700;
+  letter-spacing:.13em;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+
+.current-plan-title{
+  color:var(--text);
+  font-family:var(--font-display);
+  font-size:1rem;
+  font-weight:700;
+  line-height:1.1;
+}
+
+.current-plan-badge{
+  flex:0 0 auto;
+  border:1px solid rgba(212,146,42,.32);
+  border-radius:999px;
+  color:var(--amber);
+  background:rgba(212,146,42,.07);
+  font-family:var(--font-mono);
+  font-size:.56rem;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  padding:6px 9px;
+}
+
+.current-plan-meta-line{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px 14px;
+  color:var(--text-dim);
+  font-size:.76rem;
+  line-height:1.45;
+}
+
+.current-plan-meta-item{
+  min-width:0;
+}
+
+.current-plan-meta-label{
+  color:var(--text-dim);
+  font-family:var(--font-mono);
+  font-size:.56rem;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  margin-right:6px;
+}
+
+.current-plan-meta-value{
+  color:var(--text);
+  font-weight:700;
+  overflow-wrap:anywhere;
+}
+
 /* dash grid */
 .dgrid{display:grid;grid-template-columns:1fr 320px;gap:20px;align-items:start}
 .dleft{display:flex;flex-direction:column;gap:16px}
@@ -862,6 +941,20 @@ body,#root{
   }
   
   .stats{grid-template-columns:1fr 1fr}
+
+  .current-plan-body{
+    padding:12px 14px;
+  }
+
+  .current-plan-top{
+    margin-bottom:8px;
+  }
+
+  .current-plan-meta-line{
+    flex-direction:column;
+    gap:5px;
+  }
+
   .dgrid{grid-template-columns:1fr}
   .dright{position:static}
   .land-h1{font-size:3rem}
@@ -2053,6 +2146,20 @@ const [celebrate, setCelebrate] = useState(false);
 
 const streak = weekDots.map((pct) => pct > 0);
 
+const activePlan = (plan || {}) as any;
+const currentPlanVersion = Number(activePlan.plan_version || activePlan.planVersion || 1);
+const currentPlanGeneratedAt = activePlan.plan_generated_at || activePlan.generatedAt || null;
+const currentPlanGeneratedLabel = currentPlanGeneratedAt
+  ? new Date(currentPlanGeneratedAt).toLocaleDateString(undefined, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    })
+  : "Not saved";
+const currentPlanReason =
+  activePlan.plan_reason || (currentPlanVersion > 1 ? "Regenerated" : "Initial plan");
+const currentPlanContext = `${tier.label} · ${profile.situation || "MACP Plan"}`;
+
   const toggleHabit = (id) => {
     const wasChecked = checked[id];
     const nextChecked = { ...checked, [id]: !checked[id] };
@@ -2132,9 +2239,36 @@ const frogDesc =
               <div className="tier-week">W{profile.week||1}</div>
             </div>
           </div>
+          </div>
+
+          <div className="card current-plan-card fu fu1">
+          <div className="current-plan-body">
+            <div className="current-plan-top">
+              <div>
+                <div className="current-plan-eyebrow">Current plan</div>
+                <div className="current-plan-title">Plan v{currentPlanVersion}</div>
+              </div>
+              <div className="current-plan-badge">{currentPlanReason}</div>
+            </div>
+
+            <div className="current-plan-meta-line">
+              <span className="current-plan-meta-item">
+                <span className="current-plan-meta-label">Generated</span>
+                <span className="current-plan-meta-value">{currentPlanGeneratedLabel}</span>
+              </span>
+              <span className="current-plan-meta-item">
+                <span className="current-plan-meta-label">Context</span>
+                <span className="current-plan-meta-value">{currentPlanContext}</span>
+              </span>
+              <span className="current-plan-meta-item">
+                <span className="current-plan-meta-label">Today</span>
+                <span className="current-plan-meta-value">Plan v{currentPlanVersion}</span>
+              </span>
+            </div>
+          </div>
         </div>
 
-        {/* Energy check-in */}
+{/* Energy check-in */}
         {progressReady && !energy && (
           <div className="card fu fu1" style={{marginBottom:20}}>
             <div className="card-hd">
