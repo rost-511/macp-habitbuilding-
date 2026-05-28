@@ -2414,30 +2414,65 @@ function Landing({
     <div className="land">
       {/* --- CLERK AUTHENTICATION HEADER (FIXED POSITION) --- */}
       <header style={{ position: 'absolute', top: '8px', right: '16px', zIndex: 100 }}>
-        <SignedOut>
-          <SignInButton mode="modal">
-          <button
-  style={{
-    background: "var(--amber)",
-    color: "#07080a",
-    border: "1px solid rgba(212,146,42,0.55)",
-    borderRadius: "var(--r)",
-    padding: "8px 16px",
-    fontFamily: "var(--font-body)",
-    fontSize: ".86rem",
-    fontWeight: 600,
-    letterSpacing: ".03em",
-    cursor: "pointer",
-    boxShadow: "0 0 18px rgba(212,146,42,0.22)",
-  }}
->
-  Sign In
-</button>
-          </SignInButton>
-        </SignedOut>
+      <SignedOut>
+  <SignInButton mode="modal">
+    <button
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        background: "rgba(15,16,19,0.92)",
+        color: "var(--amber)",
+        border: "1px solid rgba(212,146,42,0.28)",
+        borderRadius: "var(--r)",
+        minHeight: 40,
+padding: "0 15px",
+        fontFamily: "var(--font-body)",
+        fontSize: ".78rem",
+        fontWeight: 700,
+        letterSpacing: ".04em",
+        cursor: "pointer",
+        boxShadow: "0 0 18px rgba(212,146,42,0.12)",
+        backdropFilter: "blur(14px)",
+      }}
+    >
+      Sign In
+    </button>
+  </SignInButton>
+</SignedOut>
         <SignedIn>
-          <UserButton afterSignOutUrl="/" />
-        </SignedIn>
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      background: "rgba(15,16,19,0.92)",
+      color: "var(--text)",
+      border: "1px solid rgba(212,146,42,0.28)",
+      borderRadius: "var(--r)",
+      padding: "6px 10px 6px 13px",
+      fontFamily: "var(--font-body)",
+      fontSize: ".78rem",
+      fontWeight: 600,
+      letterSpacing: ".04em",
+      boxShadow: "0 0 18px rgba(212,146,42,0.12)",
+      backdropFilter: "blur(14px)",
+    }}
+  >
+    <span style={{ color: "var(--amber)" }}>Account</span>
+    <UserButton
+      afterSignOutUrl="/"
+      appearance={{
+        elements: {
+          userButtonAvatarBox: {
+            width: "26px",
+            height: "26px",
+          },
+        },
+      }}
+    />
+  </div>
+</SignedIn>
       </header>
       {/* ------------------------------------ */}
       <div className="land-eyebrow fu">M · A · C · P SYSTEM</div>
