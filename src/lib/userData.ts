@@ -214,6 +214,49 @@ export async function getProgressByDate(
   if (error) throw error;
   return data;
 }
+export async function saveWeeklyReview(
+  supabase: SupabaseClient,
+  clerkUserId: string,
+  payload: {
+    week_start: string;
+    week_end: string;
+    plan_version?: number | null;
+    plan_reason?: string | null;
+    plan_generated_at?: string | null;
+    plan_snapshot?: Record<string, unknown> | null;
+    completion_pct?: number;
+    saved_days?: number;
+    scores?: Record<string, number>;
+    notes?: string;
+    insight: string;
+  }
+) {
+  const { data, error } = await supabase
+    .from("weekly_reviews")
+    .upsert(
+      {
+        clerk_user_id: clerkUserId,
+        week_start: payload.week_start,
+        week_end: payload.week_end,
+        plan_version: payload.plan_version ?? null,
+        plan_reason: payload.plan_reason ?? null,
+        plan_generated_at: payload.plan_generated_at ?? null,
+        plan_snapshot: payload.plan_snapshot ?? {},
+        completion_pct: payload.completion_pct ?? 0,
+        saved_days: payload.saved_days ?? 0,
+        scores: payload.scores ?? {},
+        notes: payload.notes ?? "",
+        insight: payload.insight,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "clerk_user_id,week_start,plan_version" }
+    )
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
 export async function resetMyAppData(
   supabase: SupabaseClient,
   clerkUserId: string

@@ -9,6 +9,7 @@ import {
   saveTodayProgress,
   getProgressMonth,
   getProgressByDate,
+  saveWeeklyReview,
   resetMyAppData,
   getPlanHistory,
 } from "./lib/userData";
@@ -2960,6 +2961,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
   const [insight, setInsight] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [reviewSaveStatus, setReviewSaveStatus] = useState("");
   const [reviewStatsReady, setReviewStatsReady] = useState(false);
   const [reviewWeekCompletion, setReviewWeekCompletion] = useState(0);
   const [reviewSavedDays, setReviewSavedDays] = useState(0);
@@ -3065,13 +3067,69 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
   const simsCompletion = reviewWeekCompletion;
 
   const run = async () => {
-    setLoading(true); setInsight(""); setDone(false);
+    setLoading(true);
+    setInsight("");
+    setDone(false);
+    setReviewSaveStatus("");
+
+    let generatedInsight = "";
+    let generationError = "";
+
     await streamClaude(
       buildReviewPrompt(profile, scores, notes, simsCompletion, plan),
-      c => setInsight(t=>t+c),
-      () => { setLoading(false); setDone(true); },
-      () => setLoading(false)
+      (chunk) => {
+        generatedInsight += chunk;
+        setInsight((text) => text + chunk);
+      },
+      () => {},
+      (errorMessage) => {
+        generationError = errorMessage;
+      }
     );
+
+    if (generationError) {
+      setLoading(false);
+      setReviewSaveStatus("AI generation failed. Try again.");
+      return;
+    }
+
+    if (!generatedInsight.trim()) {
+      setLoading(false);
+      setReviewSaveStatus("No weekly insight was generated.");
+      return;
+    }
+
+    try {
+      const today = new Date();
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 6);
+
+      await saveWeeklyReview(supabase, userId, {
+        week_start: weekStart.toISOString().slice(0, 10),
+        week_end: weekEnd.toISOString().slice(0, 10),
+        plan_version: Number(reviewPlanVersion) || 1,
+        plan_reason: reviewPlanReason,
+        plan_generated_at: reviewPlanGeneratedAt,
+        plan_snapshot: reviewPlan,
+        completion_pct: simsCompletion,
+        saved_days: reviewSavedDays,
+        scores,
+        notes,
+        insight: generatedInsight.trim(),
+      });
+
+      setReviewSaveStatus("Saved to weekly history.");
+      setDone(true);
+    } catch (error) {
+      console.error("Failed to save weekly review:", error);
+      setReviewSaveStatus("Insight generated, but saving failed.");
+      setDone(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderInsight = (raw) =>
@@ -3149,6 +3207,16 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
         <button className="btn btn-amber" onClick={run} disabled={loading}>
           {loading ? "Analyzing your week..." : "✦ Generate AI Weekly Insight"}
         </button>
+
+        {reviewSaveStatus && (
+          <div style={{
+            marginTop:10,
+            color:reviewSaveStatus.includes("failed") ? "var(--red)" : "var(--text-dim)",
+            fontSize:".82rem",
+          }}>
+            {reviewSaveStatus}
+          </div>
+        )}
       </div>
 
       {(insight||loading) && (
