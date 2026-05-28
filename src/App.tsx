@@ -555,7 +555,10 @@ body,#root{
   .dash{
     padding-top:0;
   }
-
+  .rev,
+  .set{
+    padding-top:18px;
+  }
   .stats{grid-template-columns:1fr 1fr}
   .dgrid{grid-template-columns:1fr}
   .dright{position:static}
