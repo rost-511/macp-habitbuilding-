@@ -497,7 +497,39 @@ body,#root{
 .info-row:last-child{border-bottom:none}
 .info-lbl{font-family:var(--font-mono);font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
 .info-val{font-size:.88rem;color:var(--text);font-weight:500}
+.settings-actions{
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:12px;
+  align-items:center;
+}
 
+.settings-actions button{
+  width:auto;
+}
+
+.settings-actions .btn-main{
+  justify-self:start;
+  min-width:166px;
+}
+
+.settings-actions .btn-amber{
+  justify-self:center;
+  min-width:206px;
+  white-space:nowrap;
+}
+
+.settings-danger-btn{
+  justify-self:end;
+  min-width:166px;
+  color:var(--red) !important;
+  border-color:rgba(201,82,82,0.3) !important;
+}
+
+.settings-danger-btn{
+  color:var(--red) !important;
+  border-color:rgba(201,82,82,0.3) !important;
+}
 .plan-history-list{display:grid;gap:10px}
 .plan-history-empty{
   padding:16px;
@@ -692,7 +724,6 @@ body,#root{
   .star-grid{grid-template-columns:1fr 1fr}
   .row2{grid-template-columns:1fr}
   .profile-grid{grid-template-columns:1fr}
-}
 
   .stats{grid-template-columns:1fr 1fr}
   .dgrid{grid-template-columns:1fr}
@@ -740,9 +771,7 @@ body,#root{
     grid-template-columns:1fr !important;
   }
   
-  .settings-actions > div{
-    justify-content:stretch !important;
-  }
+  
   
   .settings-actions button{
     width:100% !important;
@@ -2805,42 +2834,24 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
       </div>
 
       {/* Export */}
-      <div className="set-section">
-        <div className="set-sec-title">Export Your Plan</div>
-        <div
-        className="settings-actions"
-  style={{
-    display: "grid",
-    gridTemplateColumns: "1fr auto 1fr",
-    alignItems: "center",
-    gap: 12,
-  }}
->
-  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+<div className="set-section">
+  <div className="set-sec-title">Export Your Plan</div>
+
+  <div className="settings-actions">
     <button className="btn btn-main" onClick={exportJSON}>
       ⬇ Export JSON
     </button>
-  </div>
 
-  <button className="btn btn-amber" onClick={onGenerateNewPlan}>
-    ✦ Generate New Plan
-  </button>
+    <button className="btn btn-amber" onClick={onGenerateNewPlan}>
+      ✦ Generate New Plan
+    </button>
 
-  <div style={{ display: "flex", justifyContent: "flex-end" }}>
-    <button
-      className="btn btn-ghost"
-      onClick={onReset}
-      style={{
-        minWidth: 166,
-        color: "var(--red)",
-        borderColor: "rgba(201,82,82,0.3)",
-      }}
-    >
+    <button className="btn btn-ghost settings-danger-btn" onClick={onReset}>
       ↺ Start Over
     </button>
   </div>
 </div>
-      </div>
+      
       {/* Plan History */}
 <div className="set-section">
   <div className="set-sec-title">Plan History</div>
