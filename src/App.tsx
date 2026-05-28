@@ -729,6 +729,49 @@ body,#root{
     letter-spacing:.16em !important;
     margin-left:4px !important;
   }
+  .flow-topbar{
+    height:56px !important;
+    min-height:56px !important;
+    padding:0 16px !important;
+    flex-wrap:nowrap !important;
+    align-items:center !important;
+  }
+  
+  .flow-topbar .topbar-logo{
+    flex:0 0 auto !important;
+    width:auto !important;
+    font-size:1.15rem !important;
+    cursor:default !important;
+  }
+  
+  .flow-topbar .topbar-logo span{
+    display:inline !important;
+    font-size:.82rem !important;
+    opacity:.62 !important;
+    letter-spacing:.16em !important;
+    margin-left:4px !important;
+  }
+  
+  .flow-topbar .topbar-nav{
+    display:none !important;
+  }
+  
+  .flow-topbar .wizard-home-btn{
+    margin-left:auto !important;
+    width:auto !important;
+    min-width:0 !important;
+    padding:0 !important;
+    border:0 !important;
+    background:transparent !important;
+    box-shadow:none !important;
+    color:var(--text-mid) !important;
+    font-size:.68rem !important;
+    letter-spacing:.04em !important;
+    text-transform:none !important;
+    align-self:center !important;
+    display:inline-flex !important;
+    justify-content:center !important;
+  }
 }
 `;
 
@@ -2824,12 +2867,17 @@ const [booting, setBooting] = useState(true);
 
     setScreen("wizard");
   };
-  const NAV = profile ? [
-    { id:"dashboard", label:"Dashboard" },
-    { id:"calendar", label:"Calendar" },
-    { id:"review", label:"Weekly Review" },
-    { id:"settings", label:"Profile & Export" },
-  ] : [];
+  const APP_SCREENS = ["dashboard", "calendar", "review", "settings"];
+const showAppNav = profile && APP_SCREENS.includes(screen);
+
+const NAV = showAppNav
+  ? [
+      { id: "dashboard", label: "Dashboard" },
+      { id: "calendar", label: "Calendar" },
+      { id: "review", label: "Weekly Review" },
+      { id: "settings", label: "Profile & Export" },
+    ]
+  : [];
   if (booting) {
     return (
       <>
@@ -2843,24 +2891,45 @@ const [booting, setBooting] = useState(true);
       <style>{STYLES}</style>
       <div className={`app-shell grain ${screen === "landing" ? "landing-shell" : ""}`}>
         {/* Top bar */}
-        <div className="topbar">
-          <div className="topbar-logo" onClick={()=>profile&&setScreen("dashboard")}>
-            MACP<span> system</span>
-          </div>
-          <div className="topbar-nav">
-            {NAV.map(n=>(
-              <button key={n.id} className={`topbar-btn ${screen===n.id?"active":""}`} onClick={()=>setScreen(n.id)}>
-                {n.label}
-              </button>
-            ))}
-            {!profile && screen!=="landing" && (
-              <button className="topbar-btn" onClick={()=>setScreen("landing")}>← Home</button>
-            )}
-          </div>
-          {profile && (
-            <div className="topbar-tag">{tierFor(profile.week||1).label}</div>
-          )}
-        </div>
+        <div className={`topbar ${["wizard", "generating"].includes(screen) ? "flow-topbar" : ""}`}>
+  <div
+    className="topbar-logo"
+    onClick={() => {
+      if (profile && ["dashboard", "calendar", "review", "settings"].includes(screen)) {
+        setScreen("dashboard");
+      }
+    }}
+  >
+    MACP<span> system</span>
+  </div>
+
+  {NAV.length > 0 && (
+    <div className="topbar-nav">
+      {NAV.map((n) => (
+        <button
+          key={n.id}
+          className={`topbar-btn ${screen === n.id ? "active" : ""}`}
+          onClick={() => setScreen(n.id)}
+        >
+          {n.label}
+        </button>
+      ))}
+    </div>
+  )}
+
+  {screen === "wizard" && (
+    <button
+      className="btn btn-ghost wizard-home-btn"
+      onClick={() => setScreen("landing")}
+    >
+      ← Home
+    </button>
+  )}
+
+  {profile && !["wizard", "generating"].includes(screen) && (
+    <div className="topbar-tag">{tierFor(profile.week || 1).label}</div>
+  )}
+</div>
 
         {/* Page */}
         <div className="page">
