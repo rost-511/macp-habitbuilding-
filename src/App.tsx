@@ -611,7 +611,42 @@ body,#root{
   .dgrid{grid-template-columns:1fr}
   .dright{position:static}
   .land-h1{font-size:3rem}
-  .star-grid{grid-template-columns:1fr 1fr}
+  .star-grid{
+    grid-template-columns:repeat(3,minmax(0,1fr)) !important;
+    gap:8px !important;
+  }
+  
+  .star-box{
+    min-width:0;
+    padding:10px 4px !important;
+    overflow:hidden;
+  }
+  
+  .star-lbl{
+    font-size:.44rem !important;
+    letter-spacing:.06em !important;
+    margin-bottom:7px !important;
+    white-space:nowrap;
+  }
+  
+  .stars{
+    width:100%;
+    display:flex !important;
+    justify-content:center !important;
+    gap:0 !important;
+    font-size:.78rem !important;
+    letter-spacing:0 !important;
+    overflow:hidden;
+  }
+  
+  .star{
+    font-size:.82rem !important;
+    line-height:1 !important;
+  }
+  
+  .rev .btn-amber{
+    width:100%;
+  }
   .row2{grid-template-columns:1fr}
   .profile-grid{grid-template-columns:1fr}
   .settings-actions{
