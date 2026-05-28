@@ -261,3 +261,14 @@ export async function resetMyAppData(
 
   return data;
 }
+export async function getPlanHistory(supabase: SupabaseClient) {
+  const { data, error } = await supabase
+    .from("plan_history")
+    .select(
+      "id, plan_version, plan_reason, plan_generated_at, created_at, profile_snapshot"
+    )
+    .order("plan_version", { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}

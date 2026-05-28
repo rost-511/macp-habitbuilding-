@@ -10,6 +10,7 @@ import {
   getProgressMonth,
   getProgressByDate,
   resetMyAppData,
+  getPlanHistory,
 } from "./lib/userData";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
@@ -496,6 +497,62 @@ body,#root{
 .info-row:last-child{border-bottom:none}
 .info-lbl{font-family:var(--font-mono);font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
 .info-val{font-size:.88rem;color:var(--text);font-weight:500}
+
+.plan-history-list{display:grid;gap:10px}
+.plan-history-empty{
+  padding:16px;
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  background:var(--surface);
+  color:var(--text-mid);
+  font-size:.88rem;
+}
+@media(max-width:768px){
+  .plan-history-item{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+
+  .plan-history-pill{
+    max-width:100%;
+  }
+}
+.plan-history-item{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px 16px;
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  background:var(--surface);
+}
+.plan-history-title{
+  font-family:var(--font-display);
+  color:var(--text);
+  font-size:1.05rem;
+  font-weight:700;
+}
+.plan-history-meta{
+  margin-top:4px;
+  color:var(--text-dim);
+  font-size:.78rem;
+}
+.plan-history-pill{
+  flex:0 0 auto;
+  max-width:180px;
+  padding:7px 10px;
+  border:1px solid rgba(212,146,42,.24);
+  border-radius:999px;
+  color:var(--amber);
+  font-family:var(--font-mono);
+  font-size:.62rem;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 
 /* tier visual */
 .tier-strip{display:flex;gap:1px;background:var(--border);border-radius:var(--r);overflow:hidden;margin-top:20px}
@@ -2605,6 +2662,32 @@ function WeeklyReview({ profile, plan = null }) {
    SETTINGS / PROFILE
 ───────────────────────────────────────────────────────────────────────────── */
 function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
+  const supabase = useSupabase();
+  const [planHistory, setPlanHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPlanHistory = async () => {
+      setHistoryLoading(true);
+
+      try {
+        const rows = await getPlanHistory(supabase);
+        if (!cancelled) setPlanHistory(rows);
+      } catch (error) {
+        console.error("Failed to load plan history:", error);
+      } finally {
+        if (!cancelled) setHistoryLoading(false);
+      }
+    };
+
+    loadPlanHistory();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
   const tier = tierFor(profile.week||1);
   const [week, setWeek] = useState(profile.week||1);
 
@@ -2758,6 +2841,53 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
   </div>
 </div>
       </div>
+      {/* Plan History */}
+<div className="set-section">
+  <div className="set-sec-title">Plan History</div>
+
+  <div className="plan-history-list">
+    {historyLoading && (
+      <div className="plan-history-empty">Loading plan history...</div>
+    )}
+
+    {!historyLoading && planHistory.length === 0 && (
+      <div className="plan-history-empty">
+        No saved plan history yet. Your next generated plan will appear here.
+      </div>
+    )}
+
+    {!historyLoading &&
+      planHistory.map((item) => {
+        const generatedDate = item.plan_generated_at
+          ? new Date(item.plan_generated_at).toLocaleDateString(undefined, {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            })
+          : "Unknown date";
+
+        const reason =
+          item.plan_reason === "regenerated" ? "Regenerated" : "Initial";
+
+        return (
+          <div key={item.id} className="plan-history-item">
+            <div>
+              <div className="plan-history-title">
+                Plan v{item.plan_version}
+              </div>
+              <div className="plan-history-meta">
+                {reason} · {generatedDate}
+              </div>
+            </div>
+
+            <div className="plan-history-pill">
+              {item.profile_snapshot?.situation || "MACP Plan"}
+            </div>
+          </div>
+        );
+      })}
+  </div>
+</div>
     </div>
   );
 }
