@@ -265,7 +265,7 @@ export async function getPlanHistory(supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("plan_history")
     .select(
-      "id, plan_version, plan_reason, plan_generated_at, created_at, profile_snapshot"
+      "id, plan_version, plan_reason, plan_generated_at, created_at, profile_snapshot, plan"
     )
     .order("plan_version", { ascending: false });
 

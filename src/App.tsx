@@ -546,6 +546,48 @@ body,#root{
   border-radius:var(--r);
   background:var(--surface);
 }
+.plan-history-card{
+  border:1px solid var(--border);
+  border-radius:var(--r);
+  background:var(--surface);
+  overflow:hidden;
+}
+
+.plan-history-card .plan-history-item{
+  width:100%;
+  border:0;
+  background:transparent;
+  cursor:pointer;
+}
+
+.plan-history-card.open{
+  border-color:rgba(212,146,42,.28);
+  box-shadow:0 0 22px rgba(212,146,42,.08);
+}
+
+.plan-history-right{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.plan-history-chevron{
+  color:var(--text-dim);
+  font-family:var(--font-mono);
+  font-size:1rem;
+}
+
+.plan-history-detail{
+  border-top:1px solid var(--border);
+  padding:16px;
+}
+
+.plan-history-summary{
+  margin:0;
+  color:var(--text-mid);
+  font-size:.9rem;
+  line-height:1.7;
+}
 .plan-history-title{
   font-family:var(--font-display);
   color:var(--text);
@@ -2682,6 +2724,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
   const supabase = useSupabase();
   const [planHistory, setPlanHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -2868,22 +2911,45 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
         const reason =
           item.plan_reason === "regenerated" ? "Regenerated" : "Initial";
 
-        return (
-          <div key={item.id} className="plan-history-item">
-            <div>
-              <div className="plan-history-title">
-                Plan v{item.plan_version}
-              </div>
-              <div className="plan-history-meta">
-                {reason} · {generatedDate}
-              </div>
+          const isExpanded = expandedPlanId === item.id;
+          const historyPlan = item.plan || {};
+          
+          return (
+            <div
+              key={item.id}
+              className={`plan-history-card ${isExpanded ? "open" : ""}`}
+            >
+              <button
+                className="plan-history-item"
+                type="button"
+                onClick={() => setExpandedPlanId(isExpanded ? null : item.id)}
+              >
+                <div>
+                  <div className="plan-history-title">
+                    Plan v{item.plan_version}
+                  </div>
+                  <div className="plan-history-meta">
+                    {reason} · {generatedDate}
+                  </div>
+                </div>
+          
+                <div className="plan-history-right">
+                  <div className="plan-history-pill">
+                    {item.profile_snapshot?.situation || "MACP Plan"}
+                  </div>
+                  <span className="plan-history-chevron">
+                    {isExpanded ? "−" : "+"}
+                  </span>
+                </div>
+              </button>
+          
+              {isExpanded && historyPlan.aiPlanText && (
+                <div className="plan-history-detail">
+                  <p className="plan-history-summary">{historyPlan.aiPlanText}</p>
+                </div>
+              )}
             </div>
-
-            <div className="plan-history-pill">
-              {item.profile_snapshot?.situation || "MACP Plan"}
-            </div>
-          </div>
-        );
+          );
       })}
   </div>
 </div>
