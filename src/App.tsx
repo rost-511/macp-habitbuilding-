@@ -3326,6 +3326,8 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
       exportedAt: new Date().toISOString(),
       tier: tier.label,
       timeline: makeTimeline(profile),
+      plan_history: planHistory,
+      weekly_reviews: weeklyReviews,
     };
     const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="macp_plan.json"; a.click();
