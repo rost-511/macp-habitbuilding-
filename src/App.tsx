@@ -1339,15 +1339,19 @@ onDone(data.text);
   }
 }
 
-function buildPlanPrompt(profile) {
+function buildPlanPrompt(profile, memoryContext: string | null = null) {
   const [wH, wM] = (profile.wakeTime || "06:00").split(":").map(Number);
   const t = (dh: number, dm = 0) => {
     const total = wH * 60 + wM + dh * 60 + dm;
     return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
   };
 
-  return `You are MACP — an elite habit-architecture AI. Analyze this user's profile and return ONLY a valid JSON object. No markdown, no code fences, no extra text — just the raw JSON.
+  const memoryBlock = memoryContext
+    ? `\nPREVIOUS COACHING MEMORY (this is a plan regeneration — use this data to directly improve on the last plan, address the growth edge, and build on the keystone habit):\n${memoryContext}\n`
+    : "";
 
+  return `You are MACP — an elite habit-architecture AI. Analyze this user's profile and return ONLY a valid JSON object. No markdown, no code fences, no extra text — just the raw JSON.
+${memoryBlock}
 USER PROFILE:
 - Name: ${profile.name || "User"}
 - Situation: ${profile.situation || "Not specified"}
@@ -1834,7 +1838,7 @@ function Wizard({ onComplete, initialProfile = null }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    GENERATING SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
-function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan }) {
+function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan, userId }) {
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
@@ -1845,8 +1849,61 @@ const started = useRef(false);
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    streamClaude(
-      buildPlanPrompt(profile),
+
+    const run = async () => {
+      let memoryContext: string | null = null;
+
+      const isRegeneration =
+        existingPlan &&
+        typeof existingPlan === "object" &&
+        Object.keys(existingPlan).length > 0;
+
+      if (isRegeneration && userId) {
+        try {
+          const reviews = await getWeeklyReviews(supabase, userId);
+          const latestReview = reviews[0] || null;
+          const activePlan = existingPlan as any;
+          const activePlanVersion = Number(activePlan.plan_version || activePlan.planVersion || 1);
+          const activeDashboard = activePlan?.dashboard || {};
+
+          const extractSection = (text: string, header: string): string | null => {
+            if (!text) return null;
+            const lines = text.split("\n");
+            const startIdx = lines.findIndex(l => l.trim() === header);
+            if (startIdx === -1) return null;
+            const body: string[] = [];
+            for (let i = startIdx + 1; i < lines.length; i++) {
+              if (/^[A-Z][A-Z &/\-']{2,}$/.test(lines[i].trim())) break;
+              body.push(lines[i]);
+            }
+            return body.join("\n").trim() || null;
+          };
+
+          const parts: string[] = [`- Previously on Plan v${activePlanVersion} (${activePlan.plan_reason || "regenerated"})`];
+          if (activeDashboard?.weeklyReviewFocus) {
+            parts.push(`- Previous weekly focus: ${activeDashboard.weeklyReviewFocus}`);
+          }
+          if (latestReview) {
+            const insightText: string = latestReview.insight || "";
+            const scores = latestReview.scores || {};
+            parts.push(`- Last weekly review: ${latestReview.completion_pct ?? 0}% completion, ${latestReview.saved_days ?? 0} saved days`);
+            if (scores.consistency || scores.energy || scores.focus) {
+              parts.push(`- Scores: Consistency ${scores.consistency ?? 0}/5, Energy ${scores.energy ?? 0}/5, Deep Focus ${scores.focus ?? 0}/5`);
+            }
+            const growthEdge = extractSection(insightText, "GROWTH EDGE");
+            if (growthEdge) parts.push(`- Growth edge: ${growthEdge}`);
+            const keystone = extractSection(insightText, "NEXT WEEK'S KEYSTONE");
+            if (keystone) parts.push(`- Last keystone habit: ${keystone}`);
+          }
+
+          memoryContext = parts.join("\n");
+        } catch {
+          // memory context is optional — generation proceeds without it
+        }
+      }
+
+      streamClaude(
+        buildPlanPrompt(profile, memoryContext),
       chunk => setText(t=>t+chunk),
       async (fullText) => {
         setDone(true);
@@ -1915,6 +1972,9 @@ previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
       },
       e => setErr(e)
     );
+    };
+
+    run();
   }, []);
 
   const previewDashboard = preview?.dashboard || {};
@@ -4081,6 +4141,7 @@ const NAV = showAppNav
     supabase={supabase}
     onPlanGenerated={handlePlanGenerated}
     existingPlan={plan}
+    userId={userId}
   />
 )}
           {profile && ["dashboard", "calendar", "review", "settings"].includes(screen) && (
