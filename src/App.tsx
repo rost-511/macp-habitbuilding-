@@ -3321,6 +3321,42 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
   };
 
   const exportJSON = () => {
+    const latestReview = weeklyReviews[0] || null;
+    const latestPlanRecord = planHistory[0] || null;
+    const latestDashboard = (latestPlanRecord?.plan as any)?.dashboard || {};
+    const insightText: string = latestReview?.insight || "";
+
+    const extractSection = (text: string, header: string): string | null => {
+      if (!text) return null;
+      const lines = text.split("\n");
+      const startIdx = lines.findIndex(l => l.trim() === header);
+      if (startIdx === -1) return null;
+      const body: string[] = [];
+      for (let i = startIdx + 1; i < lines.length; i++) {
+        if (/^[A-Z][A-Z &/\-']{2,}$/.test(lines[i].trim())) break;
+        body.push(lines[i]);
+      }
+      return body.join("\n").trim() || null;
+    };
+
+    const ai_memory_snapshot = {
+      active_plan_version: latestPlanRecord?.plan_version ?? null,
+      current_week: profile?.week ?? null,
+      current_identity: latestDashboard?.identityStatement || null,
+      latest_weekly_review_summary: insightText || null,
+      latest_growth_edge: extractSection(insightText, "GROWTH EDGE"),
+      latest_keystone: extractSection(insightText, "NEXT WEEK'S KEYSTONE"),
+      latest_scores: latestReview?.scores ?? null,
+      latest_completion_pct: latestReview?.completion_pct ?? null,
+      latest_saved_days: latestReview?.saved_days ?? null,
+      recent_plan_versions: planHistory.map((p: any) => ({
+        version: p.plan_version,
+        reason: p.plan_reason,
+        generated_at: p.plan_generated_at,
+      })),
+      next_coaching_focus: latestDashboard?.weeklyReviewFocus || null,
+    };
+
     const data = {
       profile,
       exportedAt: new Date().toISOString(),
@@ -3328,6 +3364,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
       timeline: makeTimeline(profile),
       plan_history: planHistory,
       weekly_reviews: weeklyReviews,
+      ai_memory_snapshot,
     };
     const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const a = document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="macp_plan.json"; a.click();
