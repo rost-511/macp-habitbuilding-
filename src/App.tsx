@@ -2954,12 +2954,15 @@ function CalendarPage({ supabase, userId }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
-function WeeklyReview({ profile, plan = null }) {
+function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
   const [scores, setScores] = useState({ consistency:0, energy:0, focus:0 });
   const [notes, setNotes] = useState("");
   const [insight, setInsight] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const [reviewStatsReady, setReviewStatsReady] = useState(false);
+  const [reviewWeekCompletion, setReviewWeekCompletion] = useState(0);
+  const [reviewSavedDays, setReviewSavedDays] = useState(0);
   const tier = tierFor(profile.week||1);
   const reviewPlan = (plan || {}) as any;
   const reviewDashboard = reviewPlan.dashboard || {};
@@ -2975,7 +2978,91 @@ function WeeklyReview({ profile, plan = null }) {
     : "Not saved";
   const reviewWeeklyFocus = reviewDashboard.weeklyReviewFocus || "No weekly focus saved for this plan.";
 
-  const simsCompletion = 71;
+  const reviewDayPct = (row: any) => {
+    if (!row) return 0;
+
+    const habits = row.habits_snapshot || [];
+    const checked = row.checked || {};
+    const total = habits.length || Object.keys(checked).length || 0;
+
+    if (!total) return 0;
+
+    const doneCount = Object.values(checked).filter(Boolean).length;
+    return Math.round((doneCount / total) * 100);
+  };
+
+  useEffect(() => {
+    if (screen !== "review") return;
+
+    async function loadReviewProgress() {
+      if (!userId) {
+        setReviewStatsReady(true);
+        return;
+      }
+
+      setReviewStatsReady(false);
+
+      try {
+        const today = new Date();
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
+
+        const weekDays = Array.from({ length: 7 }).map((_, i) => {
+          const d = new Date(weekStart);
+          d.setDate(weekStart.getDate() + i);
+          return d.toISOString().slice(0, 10);
+        });
+
+        const currentMonthRows = await getProgressMonth(
+          supabase,
+          userId,
+          today.getFullYear(),
+          today.getMonth() + 1
+        );
+
+        let rows = currentMonthRows || [];
+
+        const weekStartsInDifferentMonth =
+          weekStart.getFullYear() !== today.getFullYear() ||
+          weekStart.getMonth() !== today.getMonth();
+
+        if (weekStartsInDifferentMonth) {
+          const previousMonthRows = await getProgressMonth(
+            supabase,
+            userId,
+            weekStart.getFullYear(),
+            weekStart.getMonth() + 1
+          );
+
+          rows = [...rows, ...(previousMonthRows || [])];
+        }
+
+        const byDate: Record<string, any> = {};
+        rows.forEach((row: any) => {
+          byDate[row.progress_date] = row;
+        });
+
+        const weekPcts = weekDays.map((date) => reviewDayPct(byDate[date]));
+        const savedDays = weekDays.filter((date) => Boolean(byDate[date])).length;
+        const completion = Math.round(
+          weekPcts.reduce((sum, pct) => sum + pct, 0) / weekPcts.length
+        );
+
+        setReviewSavedDays(savedDays);
+        setReviewWeekCompletion(completion);
+      } catch (error) {
+        console.error("Failed to load weekly review progress:", error);
+        setReviewSavedDays(0);
+        setReviewWeekCompletion(0);
+      } finally {
+        setReviewStatsReady(true);
+      }
+    }
+
+    loadReviewProgress();
+  }, [supabase, userId, screen]);
+
+  const simsCompletion = reviewWeekCompletion;
 
   const run = async () => {
     setLoading(true); setInsight(""); setDone(false);
@@ -3025,7 +3112,11 @@ function WeeklyReview({ profile, plan = null }) {
             <div style={{fontSize:".9rem",fontWeight:600}}>
               {simsCompletion>=80?"Strong week — you're compounding.":simsCompletion>=60?"Decent — one more push needed.":"Restart mode. Small wins matter."}
             </div>
-            <div style={{fontSize:".78rem",color:"var(--text-dim)",marginTop:4}}>Target: 80% or above</div>
+            <div style={{fontSize:".78rem",color:"var(--text-dim)",marginTop:4}}>
+  {reviewStatsReady
+    ? `${reviewSavedDays} saved day${reviewSavedDays === 1 ? "" : "s"} this week · Target: 80% or above`
+    : "Loading saved progress..."}
+</div>
           </div>
         </div>
         <div style={{marginTop:16,height:6,background:"var(--border)",borderRadius:99,overflow:"hidden"}}>
@@ -3738,7 +3829,13 @@ const NAV = showAppNav
     </div>
 
     <div style={{ display: screen === "review" ? "block" : "none" }}>
-      <WeeklyReview profile={profile} plan={plan} />
+    <WeeklyReview
+  profile={profile}
+  plan={plan}
+  supabase={supabase}
+  userId={userId}
+  screen={screen}
+/>
     </div>
 
     <div style={{ display: screen === "settings" ? "block" : "none" }}>
