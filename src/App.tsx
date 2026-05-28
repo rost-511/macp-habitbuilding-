@@ -614,6 +614,18 @@ body,#root{
   .star-grid{grid-template-columns:1fr 1fr}
   .row2{grid-template-columns:1fr}
   .profile-grid{grid-template-columns:1fr}
+  .settings-actions{
+    grid-template-columns:1fr !important;
+  }
+  
+  .settings-actions > div{
+    justify-content:stretch !important;
+  }
+  
+  .settings-actions button{
+    width:100% !important;
+    min-width:0 !important;
+  }
 }
 `;
 
@@ -2448,6 +2460,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
       <div className="set-section">
         <div className="set-sec-title">Export Your Plan</div>
         <div
+        className="settings-actions"
   style={{
     display: "grid",
     gridTemplateColumns: "1fr auto 1fr",
