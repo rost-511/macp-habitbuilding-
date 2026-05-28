@@ -589,6 +589,39 @@ body,#root{
   line-height:1.7;
 }
 
+.plan-history-metadata-row{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-bottom:14px;
+}
+
+.plan-history-metadata-cell{
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:rgba(255,255,255,.022);
+  padding:10px 12px;
+  min-width:0;
+}
+
+.plan-history-metadata-label{
+  margin-bottom:5px;
+  color:var(--text-dim);
+  font-family:var(--font-mono);
+  font-size:.58rem;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+
+.plan-history-metadata-value{
+  color:var(--text);
+  font-size:.78rem;
+  font-weight:700;
+  line-height:1.35;
+  overflow-wrap:anywhere;
+}
+
 .plan-history-detail-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
@@ -2984,11 +3017,24 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
           const isExpanded = expandedPlanId === item.id;
           const historyPlan = item.plan || {};
           const historyDashboard = historyPlan.dashboard || {};
+          const historySnapshot = item.profile_snapshot || historyPlan.profileSnapshot || {};
+          const historyPlanVersion =
+            item.plan_version || historyPlan.plan_version || historyPlan.planVersion || 1;
+          const historyWeek = Number(historySnapshot.week || 1);
+          const historyTier = tierFor(Number.isFinite(historyWeek) ? historyWeek : 1);
+          const historyMode = historySnapshot.situation || "MACP Plan";
           const historyFrog = historyDashboard.frogTask || null;
           const historyHabits = Array.isArray(historyDashboard.habits)
             ? historyDashboard.habits.slice(0, 5)
             : [];
+          const historyMetaItems = [
+            ["Version", `v${historyPlanVersion}`],
+            ["Generated", generatedDate],
+            ["Reason", reason],
+            ["Context", `${historyTier.label} · ${historyMode}`],
+          ];
           const hasHistoryDetails =
+            historyMetaItems.length > 0 ||
             Boolean(historyPlan.aiPlanText) ||
             Boolean(historyFrog?.title) ||
             Boolean(historyDashboard.weeklyReviewFocus) ||
@@ -3006,7 +3052,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
               >
                 <div>
                   <div className="plan-history-title">
-                    Plan v{item.plan_version}
+                  Plan v{historyPlanVersion}
                   </div>
                   <div className="plan-history-meta">
                     {reason} · {generatedDate}
@@ -3015,7 +3061,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
           
                 <div className="plan-history-right">
                   <div className="plan-history-pill">
-                    {item.profile_snapshot?.situation || "MACP Plan"}
+                  {historyMode}
                   </div>
                   <span className="plan-history-chevron">
                     {isExpanded ? "−" : "+"}
@@ -3025,6 +3071,15 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
           
               {isExpanded && hasHistoryDetails && (
                 <div className="plan-history-detail">
+                  <div className="plan-history-metadata-row">
+                    {historyMetaItems.map(([label, value]) => (
+                      <div key={label} className="plan-history-metadata-cell">
+                        <div className="plan-history-metadata-label">{label}</div>
+                        <div className="plan-history-metadata-value">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+
                   {historyPlan.aiPlanText && (
                     <p className="plan-history-summary">{historyPlan.aiPlanText}</p>
                   )}
