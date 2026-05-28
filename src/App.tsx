@@ -1167,22 +1167,6 @@ body,#root{
     display:none !important;
   }
   
-  .flow-topbar .wizard-home-btn{
-    margin-left:auto !important;
-    width:auto !important;
-    min-width:0 !important;
-    padding:0 !important;
-    border:0 !important;
-    background:transparent !important;
-    box-shadow:none !important;
-    color:var(--text-mid) !important;
-    font-size:.68rem !important;
-    letter-spacing:.04em !important;
-    text-transform:none !important;
-    align-self:center !important;
-    display:inline-flex !important;
-    justify-content:center !important;
-  }
   .plan-history-item{
     flex-direction:column;
     align-items:center;
@@ -1202,6 +1186,27 @@ body,#root{
   .gen-preview-habit em{
     grid-column:2;
   }
+}
+
+/* ── Wizard Home button ── */
+.wizard-home-button{
+  padding:8px 12px;
+  background:transparent;
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:var(--r);
+  color:var(--text-dim);
+  font-family:var(--font-body);
+  font-size:.8rem;
+  font-weight:500;
+  letter-spacing:.04em;
+  cursor:pointer;
+  transition:all .18s;
+  white-space:nowrap;
+}
+.wizard-home-button:hover{
+  color:var(--amber);
+  border-color:rgba(212,146,42,0.35);
+  background:var(--amber-glow);
 }
 
 /* ── Weekly Review History ── */
@@ -3975,7 +3980,7 @@ const NAV = showAppNav
 
   {screen === "wizard" && (
     <button
-      className="btn btn-ghost wizard-home-btn"
+      className="wizard-home-button"
       onClick={() => setScreen("landing")}
     >
       ← Home
