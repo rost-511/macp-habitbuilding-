@@ -1612,10 +1612,19 @@ function Wizard({ onComplete, initialProfile = null }) {
     return Number.isFinite(n) && n >= 0 && n <= 14;
   };
 
+  // Returns true only if the value has real textual content (not a single char, not purely numeric, meets minLen).
+  const isMeaningfulText = (value: unknown, minLen = 3): boolean => {
+    if (typeof value !== "string") return false;
+    const t = value.trim();
+    if (t.length < minLen) return false;
+    if (/^\d+$/.test(t)) return false;
+    return true;
+  };
+
   const errorsForStep = (stepIndex) => {
     if (stepIndex === 0) {
       const missing = [];
-      if (isBlank(P.name)) missing.push("First name");
+      if (!isMeaningfulText(P.name, 2)) missing.push("First name (at least 2 characters)");
       if (isBlank(P.situation)) missing.push("Current situation");
       return missing;
     }
@@ -1626,13 +1635,16 @@ function Wizard({ onComplete, initialProfile = null }) {
       if (isBlank(P.workout)) missing.push("Workout preference");
       if (!validHours(P.collegeHours)) missing.push("Study hours / day");
       if (!validHours(P.workHours)) missing.push("Work hours / day");
+      if (!isBlank(P.businessGoal) && !isMeaningfulText(P.businessGoal, 3))
+        missing.push("Business goal (at least 3 characters, not just a number)");
       return missing;
     }
 
     if (stepIndex === 2) {
       const missing = [];
-      if (!P.goals.length) missing.push("Top goals");
-      if (isBlank(P.mainGoal)) missing.push("Main 90-day goal");
+      if (!P.goals.length) missing.push("Top goals (select at least one)");
+      if (!isMeaningfulText(P.mainGoal, 10))
+        missing.push("Main 90-day goal (at least 10 characters — describe what you want to achieve)");
       return missing;
     }
 
@@ -1640,13 +1652,14 @@ function Wizard({ onComplete, initialProfile = null }) {
       const missing = [];
       if (!P.energyLevel) missing.push("Average daily energy");
       if (isBlank(P.freeHours)) missing.push("Free hours per day");
-      if (isBlank(P.constraints)) missing.push("Constraints or challenges");
+      if (!isMeaningfulText(P.constraints, 3))
+        missing.push("Constraints or challenges (at least 3 characters)");
       return missing;
     }
 
     if (stepIndex === 4) {
       const missing = [];
-      if (!P.categories.length) missing.push("Focus areas");
+      if (!P.categories.length) missing.push("Focus areas (select at least one)");
       return missing;
     }
 
