@@ -576,6 +576,57 @@ body,#root{
 .info-row:last-child{border-bottom:none}
 .info-lbl{font-family:var(--font-mono);font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim)}
 .info-val{font-size:.88rem;color:var(--text);font-weight:500}
+
+.day-plan-strip{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  border:1px solid rgba(212,146,42,.18);
+  border-radius:12px;
+  background:rgba(212,146,42,.045);
+  padding:10px 12px;
+  margin-bottom:16px;
+}
+
+.day-plan-strip > div:first-child{
+  min-width:0;
+}
+
+.day-plan-label{
+  color:var(--text-dim);
+  font-family:var(--font-mono);
+  font-size:.58rem;
+  font-weight:700;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  margin-bottom:4px;
+}
+
+.day-plan-value{
+  color:var(--text);
+  font-size:.84rem;
+  font-weight:700;
+  line-height:1.35;
+}
+
+.day-plan-pill{
+  flex:0 0 auto;
+  max-width:50%;
+  border:1px solid rgba(212,146,42,.32);
+  border-radius:999px;
+  color:var(--amber);
+  background:rgba(212,146,42,.07);
+  font-family:var(--font-mono);
+  font-size:.56rem;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+  padding:6px 9px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
 .settings-actions{
   display:grid;
   grid-template-columns:1fr auto 1fr;
@@ -2601,6 +2652,27 @@ function CalendarPage({ supabase, userId }) {
   const selectedHabits = selected?.habits_snapshot || [];
   const selectedChecked = selected?.checked || {};
   const selectedPct = completionFor(selected);
+  const selectedPlanVersion =
+    selected?.plan_version ||
+    selected?.plan_snapshot?.plan_version ||
+    selected?.plan_snapshot?.planVersion ||
+    null;
+  const selectedPlanReason =
+    selected?.plan_reason ||
+    selected?.plan_snapshot?.plan_reason ||
+    null;
+  const selectedPlanGeneratedAt =
+    selected?.plan_generated_at ||
+    selected?.plan_snapshot?.plan_generated_at ||
+    selected?.plan_snapshot?.generatedAt ||
+    null;
+  const selectedPlanGeneratedLabel = selectedPlanGeneratedAt
+    ? new Date(selectedPlanGeneratedAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Not saved";
 
   return (
     <div className="dash tab-fu tab-clean">
@@ -2786,6 +2858,18 @@ function CalendarPage({ supabase, userId }) {
                     }}
                   >
                     {selected.progress_date}
+                  </div>
+
+                  <div className="day-plan-strip">
+                    <div>
+                      <div className="day-plan-label">Plan used</div>
+                      <div className="day-plan-value">
+                        {selectedPlanVersion ? `Plan v${selectedPlanVersion}` : "No plan metadata"}
+                      </div>
+                    </div>
+                    <div className="day-plan-pill">
+                      {selectedPlanReason || selectedPlanGeneratedLabel}
+                    </div>
                   </div>
 
                   <div className="ring-center" style={{ marginBottom: 18 }}>
