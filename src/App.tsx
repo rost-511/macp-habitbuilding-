@@ -661,6 +661,54 @@ body,#root{
     width:100% !important;
     min-width:0 !important;
   }
+  .week-controls{
+    display:grid !important;
+    grid-template-columns:48px 82px 48px !important;
+    justify-content:center !important;
+    gap:8px !important;
+    align-items:center !important;
+  }
+  
+  .week-btn{
+    width:48px !important;
+    min-width:48px !important;
+    padding:10px 0 !important;
+  }
+  
+  .week-readout{
+    text-align:center !important;
+  }
+  
+  .week-tier{
+    grid-column:1 / -1;
+    text-align:center !important;
+    margin-top:4px;
+  }
+  
+  .week-tier .tier-pill{
+    width:100%;
+    justify-content:center !important;
+  }
+  
+  .tier-strip{
+    display:grid !important;
+    grid-template-columns:repeat(2,minmax(0,1fr)) !important;
+    gap:8px !important;
+    border:0 !important;
+    background:transparent !important;
+    overflow:visible !important;
+  }
+  
+  .tier-strip > div{
+    min-height:76px !important;
+    border:1px solid rgba(255,255,255,.08) !important;
+    border-radius:12px !important;
+    overflow:hidden !important;
+  }
+  
+  .tier-strip > div *{
+    white-space:normal !important;
+  }
 }
 `;
 
@@ -2433,14 +2481,14 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
       {/* Tier / Week selector */}
       <div className="set-section">
         <div className="set-sec-title">Progression — Current Week</div>
-        <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:20}}>
-          <button className="btn btn-ghost" style={{padding:"10px 18px"}} onClick={()=>updateWeek(Math.max(1,week-1))}>−</button>
-          <div style={{textAlign:"center"}}>
+        <div className="week-controls" style={{display:"flex",alignItems:"center",gap:16,marginBottom:20}}>
+        <button className="btn btn-ghost week-btn" style={{padding:"10px 18px"}} onClick={()=>updateWeek(Math.max(1,week-1))}>−</button>
+        <div className="week-readout" style={{textAlign:"center"}}>
             <div style={{fontFamily:"var(--font-display)",fontSize:"2.5rem",fontWeight:700,lineHeight:1}}>{week}</div>
             <div style={{fontFamily:"var(--font-mono)",fontSize:".62rem",color:"var(--text-dim)",letterSpacing:".12em",textTransform:"uppercase"}}>Week</div>
           </div>
-          <button className="btn btn-ghost" style={{padding:"10px 18px"}} onClick={()=>updateWeek(Math.min(12,week+1))}>+</button>
-          <div style={{flex:1,textAlign:"right"}}>
+          <button className="btn btn-ghost week-btn" style={{padding:"10px 18px"}} onClick={()=>updateWeek(Math.min(12,week+1))}>+</button>
+          <div className="week-tier" style={{flex:1,textAlign:"right"}}>
             <div className="tier-pill" style={{justifyContent:"flex-end"}}>
               <div className="tier-pip" style={{background:tier.color}}/>
               <div className="tier-name">{tier.label}</div>
