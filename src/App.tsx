@@ -9,6 +9,7 @@ import {
   saveTodayProgress,
   getProgressMonth,
   getProgressByDate,
+  resetMyAppData,
 } from "./lib/userData";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
@@ -2355,8 +2356,35 @@ const [booting, setBooting] = useState(true);
   const handlePlanGenerated = (generatedPlan) => {
     setPlan(generatedPlan);
   };
-  const handlePlanReady      = ()  => setScreen("dashboard");
-  const handleReset          = ()  => { setProfile(null); setScreen("landing"); };
+  const handlePlanReady = () => setScreen("dashboard");
+
+  const handleReset = async () => {
+    if (!userId) {
+      alert("You must be signed in to start over.");
+      return;
+    }
+
+    const ok = window.confirm(
+      "Start over? This will delete your current plan and saved daily progress. Your account stays signed in."
+    );
+
+    if (!ok) return;
+
+    setBooting(true);
+
+    try {
+      await resetMyAppData(supabase, userId);
+
+      setPlan(null);
+      setProfile(null);
+      setScreen("wizard");
+    } catch (error) {
+      console.error("Failed to start over:", error);
+      alert("Start Over failed. Check the console/Supabase permissions.");
+    } finally {
+      setBooting(false);
+    }
+  };
 
   const NAV = profile ? [
     { id:"dashboard", label:"Dashboard" },

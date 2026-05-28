@@ -170,3 +170,45 @@ export async function getProgressByDate(
   if (error) throw error;
   return data;
 }
+export async function resetMyAppData(
+  supabase: SupabaseClient,
+  clerkUserId: string
+) {
+  const { error: progressError } = await supabase
+    .from("daily_progress")
+    .delete()
+    .eq("clerk_user_id", clerkUserId);
+
+  if (progressError) throw progressError;
+
+  const { data, error: profileError } = await supabase
+    .from("profiles")
+    .update({
+      full_name: "",
+      onboarding_completed: false,
+      onboarding_version: 1,
+      onboarding_answers: {},
+      current_plan: {},
+    })
+    .eq("clerk_user_id", clerkUserId)
+    .select()
+    .maybeSingle();
+
+  if (profileError) throw profileError;
+
+  try {
+    await supabase.from("change_log").insert({
+      change_type: "start_over",
+      before_data: null,
+      after_data: {
+        cleared_daily_progress: true,
+        cleared_current_plan: true,
+        cleared_onboarding_answers: true,
+      },
+    });
+  } catch {
+    // not fatal
+  }
+
+  return data;
+}
