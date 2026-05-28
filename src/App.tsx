@@ -3328,17 +3328,23 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
     // Priority: in-memory plan → latest review's plan_snapshot → planHistory[0].plan
     let activePlanDoc: any = {};
     let activePlanVersion: number | null = null;
+    let activePlanSource: string = "unknown";
     if (plan && typeof plan === "object" && Object.keys(plan).length > 0) {
       activePlanDoc = plan;
       activePlanVersion = Number(plan.plan_version || plan.planVersion || 1);
+      activePlanSource = "current_plan";
     } else if (latestReview?.plan_snapshot && Object.keys(latestReview.plan_snapshot).length > 0) {
       activePlanDoc = latestReview.plan_snapshot;
       activePlanVersion = latestReview.plan_version ?? null;
+      activePlanSource = "latest_weekly_review";
     } else if (latestPlanRecord?.plan) {
       activePlanDoc = latestPlanRecord.plan;
       activePlanVersion = latestPlanRecord.plan_version ?? null;
+      activePlanSource = "plan_history";
     }
     const activeDashboard = activePlanDoc?.dashboard || {};
+
+    const reviewPlanVersion: number | null = latestReview?.plan_version ?? null;
 
     const extractSection = (text: string, header: string): string | null => {
       if (!text) return null;
@@ -3354,7 +3360,16 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
     };
 
     const ai_memory_snapshot = {
+      active_plan_source: activePlanSource,
       active_plan_version: activePlanVersion,
+      latest_weekly_review_plan_version: reviewPlanVersion,
+      latest_weekly_review_plan_reason: latestReview?.plan_reason ?? null,
+      latest_weekly_review_matches_active_plan:
+        activePlanVersion !== null && reviewPlanVersion !== null
+          ? activePlanVersion === reviewPlanVersion
+          : false,
+      latest_weekly_review_week_start: latestReview?.week_start ?? null,
+      latest_weekly_review_week_end: latestReview?.week_end ?? null,
       current_week: profile?.week ?? null,
       current_identity: activeDashboard?.identityStatement || null,
       latest_weekly_review_summary: insightText || null,
