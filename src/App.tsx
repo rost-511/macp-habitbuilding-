@@ -828,15 +828,44 @@ const STEPS = [
   { label:"Step 5 / 5", title:"Choose Habit Categories",    sub:"Where do you want to level up?" },
 ];
 
-function Wizard({ onComplete }) {
+function Wizard({ onComplete, initialProfile = null }) {
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
 
-  const [P, setP] = useState({
-    name:"", situation:"", wakeTime:"06:00", workout:"none",
-    collegeHours:"", workHours:"", businessGoal:"",
-    goals:[], mainGoal:"", energyLevel:7, constraints:"", freeHours:"2",
-    categories:[], customHabits:[], week:1,
+  const [P, setP] = useState(() => {
+    const base = {
+      name: "",
+      situation: "",
+      wakeTime: "06:00",
+      workout: "none",
+      collegeHours: "",
+      workHours: "",
+      businessGoal: "",
+      goals: [],
+      mainGoal: "",
+      energyLevel: 7,
+      constraints: "",
+      freeHours: "2",
+      categories: [],
+      customHabits: [],
+      week: 1,
+    };
+  
+    const initial = initialProfile || {};
+  
+    return {
+      ...base,
+      ...initial,
+      goals: Array.isArray(initial.goals) ? initial.goals : base.goals,
+      categories: Array.isArray(initial.categories)
+        ? initial.categories
+        : base.categories,
+      customHabits: Array.isArray(initial.customHabits)
+        ? initial.customHabits
+        : base.customHabits,
+      energyLevel: Number(initial.energyLevel || base.energyLevel),
+      week: Number(initial.week || base.week),
+    };
   });
   const up = (k, v) => {
     setError("");
@@ -2189,7 +2218,7 @@ function WeeklyReview({ profile, plan = null }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    SETTINGS / PROFILE
 ───────────────────────────────────────────────────────────────────────────── */
-function Settings({ profile, setProfile, onReset }) {
+function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
   const tier = tierFor(profile.week||1);
   const [week, setWeek] = useState(profile.week||1);
 
@@ -2310,11 +2339,14 @@ function Settings({ profile, setProfile, onReset }) {
       <div className="set-section">
         <div className="set-sec-title">Export Your Plan</div>
         <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-          <button className="btn btn-main" onClick={exportJSON}>⬇ Export JSON</button>
-          <button className="btn btn-main" onClick={exportCSV}>⬇ Export CSV (Habits)</button>
-          <button className="btn btn-ghost" onClick={onReset} style={{marginLeft:"auto",color:"var(--red)",borderColor:"rgba(201,82,82,0.3)"}}>
-            ↺ Start Over
-          </button>
+        <button className="btn btn-main" onClick={exportJSON}>⬇ Export JSON</button>
+<button className="btn btn-main" onClick={exportCSV}>⬇ Export CSV (Habits)</button>
+<button className="btn btn-amber" onClick={onGenerateNewPlan}>
+  ✦ Generate New Plan
+</button>
+<button className="btn btn-ghost" onClick={onReset} style={{marginLeft:"auto",color:"var(--red)",borderColor:"rgba(201,82,82,0.3)"}}>
+  ↺ Start Over
+</button>
         </div>
       </div>
     </div>
@@ -2499,7 +2531,17 @@ const [booting, setBooting] = useState(true);
       setBooting(false);
     }
   };
+  const handleGenerateNewPlan = () => {
+    if (!profile) return;
 
+    const ok = window.confirm(
+      "Generate a new plan? Your saved calendar/progress history will stay. Only your current plan will be replaced after the new plan is generated."
+    );
+
+    if (!ok) return;
+
+    setScreen("wizard");
+  };
   const NAV = profile ? [
     { id:"dashboard", label:"Dashboard" },
     { id:"calendar", label:"Calendar" },
@@ -2546,7 +2588,12 @@ const [booting, setBooting] = useState(true);
     onDashboard={() => setScreen("dashboard")}
   />
 )}
-          {screen==="wizard"     && <Wizard onComplete={handleWizardComplete}/>}
+                    {screen === "wizard" && (
+            <Wizard
+              onComplete={handleWizardComplete}
+              initialProfile={profile}
+            />
+          )}
           {screen==="generating" && (
   <Generating
     profile={profile}
@@ -2579,10 +2626,11 @@ const [booting, setBooting] = useState(true);
     </div>
 
     <div style={{ display: screen === "settings" ? "block" : "none" }}>
-      <Settings
+    <Settings
         profile={profile}
         setProfile={setProfile}
         onReset={handleReset}
+        onGenerateNewPlan={handleGenerateNewPlan}
       />
     </div>
   </>
