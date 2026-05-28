@@ -536,7 +536,20 @@ body,#root{
 /* weekly review */
 .rev{max-width:740px;margin:0 auto;padding:48px 24px 100px}
 .rev-h1{font-family:var(--font-display);font-size:2.6rem;font-weight:700;margin-bottom:8px}
-.rev-sub{font-size:.92rem;color:var(--text-mid);margin-bottom:40px;line-height:1.6}
+.rev-sub{font-size:.92rem;color:var(--text-mid);margin-bottom:28px;line-height:1.6}
+.rev-plan-card{
+  border:1px solid rgba(212,146,42,.2);
+  border-radius:var(--r2);
+  background:linear-gradient(135deg,rgba(212,146,42,.055),rgba(255,255,255,.014));
+  padding:14px 16px;
+  margin-bottom:34px;
+}
+.rev-plan-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.rev-plan-label{font-family:var(--font-mono);font-size:.58rem;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--amber);margin-bottom:4px}
+.rev-plan-title{font-family:var(--font-display);font-size:1.05rem;font-weight:700;color:var(--text);line-height:1.15}
+.rev-plan-pill{flex:0 0 auto;border:1px solid rgba(212,146,42,.32);border-radius:999px;color:var(--amber);background:rgba(212,146,42,.07);font-family:var(--font-mono);font-size:.56rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;padding:6px 9px;white-space:nowrap}
+.rev-plan-focus{color:var(--text-mid);font-size:.84rem;line-height:1.55}
+.rev-plan-focus strong{color:var(--text);font-weight:700}
 .rev-section{margin-bottom:36px}
 .rev-sec-title{
   font-family:var(--font-mono);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;
@@ -1374,11 +1387,19 @@ Rules:
 - aiPlanText must be a plain string (no JSON inside it)`;
 }
 
-function buildReviewPrompt(profile, scores, notes, completionPct) {
+function buildReviewPrompt(profile, scores, notes, completionPct, plan = null) {
   const tier = tierFor(profile.week || 1);
+  const reviewPlan = (plan || {}) as any;
+  const reviewDashboard = reviewPlan.dashboard || {};
+  const reviewPlanVersion = reviewPlan.plan_version || reviewPlan.planVersion || 1;
+  const reviewPlanReason = reviewPlan.plan_reason || (reviewPlanVersion > 1 ? "regenerated" : "initial plan");
+  const reviewWeeklyFocus = reviewDashboard.weeklyReviewFocus || "No weekly focus saved";
+
   return `You are MACP weekly coach. Generate a personalized weekly review.
 
 USER: ${profile.name || "User"} | ${tier.label} | Week ${profile.week || 1}
+Active plan: Plan v${reviewPlanVersion} (${reviewPlanReason})
+Plan weekly focus: ${reviewWeeklyFocus}
 Habit completion this week: ${completionPct}%
 Scores — Consistency: ${scores.consistency}/5, Energy mgmt: ${scores.energy}/5, Deep focus: ${scores.focus}/5
 User notes: "${notes || "None provided"}"
@@ -2940,13 +2961,26 @@ function WeeklyReview({ profile, plan = null }) {
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
   const tier = tierFor(profile.week||1);
+  const reviewPlan = (plan || {}) as any;
+  const reviewDashboard = reviewPlan.dashboard || {};
+  const reviewPlanVersion = reviewPlan.plan_version || reviewPlan.planVersion || 1;
+  const reviewPlanReason = reviewPlan.plan_reason || (reviewPlanVersion > 1 ? "regenerated" : "initial plan");
+  const reviewPlanGeneratedAt = reviewPlan.plan_generated_at || reviewPlan.generatedAt || null;
+  const reviewPlanGeneratedLabel = reviewPlanGeneratedAt
+    ? new Date(reviewPlanGeneratedAt).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Not saved";
+  const reviewWeeklyFocus = reviewDashboard.weeklyReviewFocus || "No weekly focus saved for this plan.";
 
   const simsCompletion = 71;
 
   const run = async () => {
     setLoading(true); setInsight(""); setDone(false);
     await streamClaude(
-      buildReviewPrompt(profile, scores, notes, simsCompletion),
+      buildReviewPrompt(profile, scores, notes, simsCompletion, plan),
       c => setInsight(t=>t+c),
       () => { setLoading(false); setDone(true); },
       () => setLoading(false)
@@ -2967,25 +3001,21 @@ function WeeklyReview({ profile, plan = null }) {
         Honest reflection is the compound interest of habit systems.<br/>
         <span style={{fontFamily:"var(--font-mono)",fontSize:".72rem",color:"var(--amber)"}}>{tier.label}</span>
       </p>
-      {(plan as any)?.dashboard?.weeklyReviewFocus && (
-  <div style={{
-    marginBottom:28,
-    padding:"14px 18px",
-    background:"var(--amber-dim)",
-    border:"1px solid rgba(212,146,42,0.3)",
-    borderRadius:"var(--r)",
-    fontFamily:"var(--font-mono)",
-    fontSize:".74rem",
-    lineHeight:1.6,
-    color:"var(--text)",
-  }}>
-    <span style={{color:"var(--amber)",fontWeight:600,letterSpacing:".08em"}}>
-      ✦ YOUR FOCUS THIS WEEK
-    </span>
-    <br/>
-    {(plan as any).dashboard.weeklyReviewFocus}
-  </div>
-)}
+      <div className="rev-plan-card">
+        <div className="rev-plan-top">
+          <div>
+            <div className="rev-plan-label">Reviewing current plan</div>
+            <div className="rev-plan-title">Plan v{reviewPlanVersion}</div>
+          </div>
+          <div className="rev-plan-pill">{reviewPlanReason}</div>
+        </div>
+        <div className="rev-plan-focus">
+          <strong>Weekly focus:</strong> {reviewWeeklyFocus}
+          <br />
+          <strong>Generated:</strong> {reviewPlanGeneratedLabel}
+        </div>
+      </div>
+
       {/* Completion stat */}
       <div className="rev-section">
         <div className="rev-sec-title">Habit Completion This Week</div>
