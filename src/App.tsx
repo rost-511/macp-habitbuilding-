@@ -3259,7 +3259,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    SETTINGS / PROFILE
 ───────────────────────────────────────────────────────────────────────────── */
-function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
+function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, plan }) {
   const supabase = useSupabase();
   const [planHistory, setPlanHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -3323,8 +3323,22 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
   const exportJSON = () => {
     const latestReview = weeklyReviews[0] || null;
     const latestPlanRecord = planHistory[0] || null;
-    const latestDashboard = (latestPlanRecord?.plan as any)?.dashboard || {};
     const insightText: string = latestReview?.insight || "";
+
+    // Priority: in-memory plan → latest review's plan_snapshot → planHistory[0].plan
+    let activePlanDoc: any = {};
+    let activePlanVersion: number | null = null;
+    if (plan && typeof plan === "object" && Object.keys(plan).length > 0) {
+      activePlanDoc = plan;
+      activePlanVersion = Number(plan.plan_version || plan.planVersion || 1);
+    } else if (latestReview?.plan_snapshot && Object.keys(latestReview.plan_snapshot).length > 0) {
+      activePlanDoc = latestReview.plan_snapshot;
+      activePlanVersion = latestReview.plan_version ?? null;
+    } else if (latestPlanRecord?.plan) {
+      activePlanDoc = latestPlanRecord.plan;
+      activePlanVersion = latestPlanRecord.plan_version ?? null;
+    }
+    const activeDashboard = activePlanDoc?.dashboard || {};
 
     const extractSection = (text: string, header: string): string | null => {
       if (!text) return null;
@@ -3340,9 +3354,9 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
     };
 
     const ai_memory_snapshot = {
-      active_plan_version: latestPlanRecord?.plan_version ?? null,
+      active_plan_version: activePlanVersion,
       current_week: profile?.week ?? null,
-      current_identity: latestDashboard?.identityStatement || null,
+      current_identity: activeDashboard?.identityStatement || null,
       latest_weekly_review_summary: insightText || null,
       latest_growth_edge: extractSection(insightText, "GROWTH EDGE"),
       latest_keystone: extractSection(insightText, "NEXT WEEK'S KEYSTONE"),
@@ -3354,7 +3368,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
         reason: p.plan_reason,
         generated_at: p.plan_generated_at,
       })),
-      next_coaching_focus: latestDashboard?.weeklyReviewFocus || null,
+      next_coaching_focus: activeDashboard?.weeklyReviewFocus || null,
     };
 
     const data = {
@@ -4090,6 +4104,7 @@ const NAV = showAppNav
         onReset={handleReset}
         onGenerateNewPlan={handleGenerateNewPlan}
         userId={userId}
+        plan={plan}
       />
     </div>
   </>
