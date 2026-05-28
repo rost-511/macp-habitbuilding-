@@ -583,10 +583,80 @@ body,#root{
 }
 
 .plan-history-summary{
-  margin:0;
+  margin:0 0 14px;
   color:var(--text-mid);
   font-size:.9rem;
   line-height:1.7;
+}
+
+.plan-history-detail-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px;
+}
+
+.plan-history-detail-card{
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.025);
+  padding:14px;
+}
+
+.plan-history-detail-label{
+  margin-bottom:8px;
+  color:var(--amber);
+  font-family:var(--font-mono);
+  font-size:.64rem;
+  font-weight:700;
+  letter-spacing:.09em;
+  text-transform:uppercase;
+}
+
+.plan-history-detail-title{
+  color:var(--text);
+  font-size:.92rem;
+  font-weight:700;
+  line-height:1.45;
+}
+
+.plan-history-detail-note{
+  margin-top:6px;
+  color:var(--text-dim);
+  font-size:.82rem;
+  line-height:1.55;
+}
+
+.plan-history-habit-card{
+  grid-column:1 / -1;
+}
+
+.plan-history-habit-list{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:10px 18px;
+}
+
+.plan-history-habit-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  color:var(--text-mid);
+  font-size:.84rem;
+  line-height:1.45;
+}
+
+.plan-history-habit-name{
+  min-width:0;
+}
+
+.plan-history-habit-tag{
+  flex:0 0 auto;
+  color:var(--text-dim);
+  font-family:var(--font-mono);
+  font-size:.62rem;
+  letter-spacing:.06em;
+  text-transform:uppercase;
 }
 .plan-history-title{
   font-family:var(--font-display);
@@ -2913,6 +2983,16 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
 
           const isExpanded = expandedPlanId === item.id;
           const historyPlan = item.plan || {};
+          const historyDashboard = historyPlan.dashboard || {};
+          const historyFrog = historyDashboard.frogTask || null;
+          const historyHabits = Array.isArray(historyDashboard.habits)
+            ? historyDashboard.habits.slice(0, 5)
+            : [];
+          const hasHistoryDetails =
+            Boolean(historyPlan.aiPlanText) ||
+            Boolean(historyFrog?.title) ||
+            Boolean(historyDashboard.weeklyReviewFocus) ||
+            historyHabits.length > 0;
           
           return (
             <div
@@ -2943,9 +3023,57 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
                 </div>
               </button>
           
-              {isExpanded && historyPlan.aiPlanText && (
+              {isExpanded && hasHistoryDetails && (
                 <div className="plan-history-detail">
-                  <p className="plan-history-summary">{historyPlan.aiPlanText}</p>
+                  {historyPlan.aiPlanText && (
+                    <p className="plan-history-summary">{historyPlan.aiPlanText}</p>
+                  )}
+
+                  <div className="plan-history-detail-grid">
+                    {historyFrog?.title && (
+                      <div className="plan-history-detail-card">
+                        <div className="plan-history-detail-label">Highest leverage task</div>
+                        <div className="plan-history-detail-title">{historyFrog.title}</div>
+                        {historyFrog.description && (
+                          <div className="plan-history-detail-note">
+                            {historyFrog.description}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {historyDashboard.weeklyReviewFocus && (
+                      <div className="plan-history-detail-card">
+                        <div className="plan-history-detail-label">Weekly focus</div>
+                        <div className="plan-history-detail-title">
+                          {historyDashboard.weeklyReviewFocus}
+                        </div>
+                      </div>
+                    )}
+
+                    {historyHabits.length > 0 && (
+                        <div className="plan-history-detail-card plan-history-habit-card">
+                        <div className="plan-history-detail-label">Habit stack</div>
+                        <div className="plan-history-habit-list">
+                          {historyHabits.map((habit: any, index: number) => (
+                            <div
+                              key={habit.id || `${habit.name}-${index}`}
+                              className="plan-history-habit-row"
+                            >
+                              <span className="plan-history-habit-name">
+                                {habit.name}
+                              </span>
+                              {habit.tag && (
+                                <span className="plan-history-habit-tag">
+                                  {habit.tag}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
