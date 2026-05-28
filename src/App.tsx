@@ -622,6 +622,17 @@ body,#root{
   overflow-wrap:anywhere;
 }
 
+.plan-history-legacy-note{
+  border:1px dashed var(--border);
+  border-radius:14px;
+  background:rgba(255,255,255,.018);
+  color:var(--text-dim);
+  font-size:.84rem;
+  line-height:1.55;
+  padding:14px;
+  margin-bottom:14px;
+}
+
 .plan-history-detail-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
@@ -3027,18 +3038,20 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
           const historyHabits = Array.isArray(historyDashboard.habits)
             ? historyDashboard.habits.slice(0, 5)
             : [];
-          const historyMetaItems = [
-            ["Version", `v${historyPlanVersion}`],
-            ["Generated", generatedDate],
-            ["Reason", reason],
-            ["Context", `${historyTier.label} · ${historyMode}`],
-          ];
-          const hasHistoryDetails =
-            historyMetaItems.length > 0 ||
-            Boolean(historyPlan.aiPlanText) ||
-            Boolean(historyFrog?.title) ||
-            Boolean(historyDashboard.weeklyReviewFocus) ||
-            historyHabits.length > 0;
+            const historyMetaItems = [
+              ["Version", `v${historyPlanVersion}`],
+              ["Generated", generatedDate],
+              ["Reason", reason],
+              ["Context", `${historyTier.label} · ${historyMode}`],
+            ];
+            const hasStructuredHistoryDetails =
+              Boolean(historyFrog?.title) ||
+              Boolean(historyDashboard.weeklyReviewFocus) ||
+              historyHabits.length > 0;
+            const hasHistoryDetails =
+              historyMetaItems.length > 0 ||
+              Boolean(historyPlan.aiPlanText) ||
+              hasStructuredHistoryDetails;
           
           return (
             <div
@@ -3082,6 +3095,12 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
 
                   {historyPlan.aiPlanText && (
                     <p className="plan-history-summary">{historyPlan.aiPlanText}</p>
+                  )}
+
+                  {!hasStructuredHistoryDetails && (
+                    <div className="plan-history-legacy-note">
+                      Detailed structure was not saved for this older plan.
+                    </div>
                   )}
 
                   <div className="plan-history-detail-grid">
