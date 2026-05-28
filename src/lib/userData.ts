@@ -315,3 +315,18 @@ export async function getPlanHistory(supabase: SupabaseClient) {
   if (error) throw error;
   return data || [];
 }
+
+export async function getWeeklyReviews(
+  supabase: SupabaseClient,
+  clerkUserId: string
+) {
+  const { data, error } = await supabase
+    .from("weekly_reviews")
+    .select("*")
+    .eq("clerk_user_id", clerkUserId)
+    .order("week_start", { ascending: false })
+    .limit(12);
+
+  if (error) throw error;
+  return data || [];
+}

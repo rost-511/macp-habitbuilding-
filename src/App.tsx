@@ -12,6 +12,7 @@ import {
   saveWeeklyReview,
   resetMyAppData,
   getPlanHistory,
+  getWeeklyReviews,
 } from "./lib/userData";
 /* ─────────────────────────────────────────────────────────────────────────────
    STYLES
@@ -1202,6 +1203,18 @@ body,#root{
     grid-column:2;
   }
 }
+
+/* ── Weekly Review History ── */
+.wr-scores{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.wr-score-item{display:flex;flex-direction:column;gap:3px;flex:1;min-width:80px}
+.wr-score-label{font-family:var(--font-mono);font-size:.56rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim);margin-bottom:2px}
+.wr-score-stars{font-size:.88rem;color:var(--amber);letter-spacing:1px}
+.wr-notes-block{margin-bottom:12px}
+.wr-notes-label{font-family:var(--font-mono);font-size:.56rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--text-dim);margin-bottom:5px}
+.wr-notes-text{font-size:.86rem;line-height:1.7;color:var(--text-mid)}
+.wr-insight-block{border-top:1px solid var(--border);padding-top:12px;margin-top:4px}
+.wr-insight-label{font-family:var(--font-mono);font-size:.56rem;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+.wr-insight-text{font-size:.86rem;line-height:1.75;color:var(--text-mid);white-space:pre-wrap}
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -3241,11 +3254,14 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    SETTINGS / PROFILE
 ───────────────────────────────────────────────────────────────────────────── */
-function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
+function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId }) {
   const supabase = useSupabase();
   const [planHistory, setPlanHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
+  const [weeklyReviews, setWeeklyReviews] = useState<any[]>([]);
+  const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
+  const [expandedWeeklyReviewId, setExpandedWeeklyReviewId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -3269,6 +3285,28 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
       cancelled = true;
     };
   }, [supabase]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!userId) return;
+
+    const loadWeeklyReviews = async () => {
+      setWeeklyReviewsLoading(true);
+      try {
+        const rows = await getWeeklyReviews(supabase, userId);
+        if (!cancelled) setWeeklyReviews(rows);
+      } catch (error) {
+        console.error("Failed to load weekly reviews:", error);
+      } finally {
+        if (!cancelled) setWeeklyReviewsLoading(false);
+      }
+    };
+
+    loadWeeklyReviews();
+
+    return () => { cancelled = true; };
+  }, [supabase, userId]);
+
   const tier = tierFor(profile.week||1);
   const [week, setWeek] = useState(profile.week||1);
 
@@ -3559,6 +3597,101 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
               )}
             </div>
           );
+      })}
+  </div>
+</div>
+
+      {/* Weekly Review History */}
+<div className="set-section">
+  <div className="set-sec-title">Weekly Review History</div>
+
+  <div className="plan-history-list">
+    {weeklyReviewsLoading && (
+      <div className="plan-history-empty">Loading review history...</div>
+    )}
+
+    {!weeklyReviewsLoading && weeklyReviews.length === 0 && (
+      <div className="plan-history-empty">
+        No saved weekly reviews yet. Complete your first Weekly Review to see it here.
+      </div>
+    )}
+
+    {!weeklyReviewsLoading &&
+      weeklyReviews.map((item) => {
+        const isExpanded = expandedWeeklyReviewId === item.id;
+        const scores = item.scores || {};
+        const fmtWeekDate = (iso: string) => {
+          const [y, m, d] = iso.split("-").map(Number);
+          return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+            month: "short", day: "numeric", year: "numeric",
+          });
+        };
+
+        return (
+          <div
+            key={item.id}
+            className={`plan-history-card ${isExpanded ? "open" : ""}`}
+          >
+            <button
+              className="plan-history-item"
+              type="button"
+              onClick={() =>
+                setExpandedWeeklyReviewId(isExpanded ? null : item.id)
+              }
+            >
+              <div>
+                <div className="plan-history-title">
+                  {fmtWeekDate(item.week_start)} → {fmtWeekDate(item.week_end)}
+                </div>
+                <div className="plan-history-meta">
+                  Plan v{item.plan_version || 1} · {item.completion_pct ?? 0}% · {item.saved_days ?? 0} days
+                </div>
+              </div>
+
+              <div className="plan-history-right">
+                <div className="plan-history-pill">
+                  {item.plan_reason || "initial"}
+                </div>
+                <span className="plan-history-chevron">
+                  {isExpanded ? "−" : "+"}
+                </span>
+              </div>
+            </button>
+
+            {isExpanded && (
+              <div className="plan-history-detail">
+                <div className="plan-history-metadata-row" style={{marginBottom:12}}>
+                  <div className="plan-history-metadata-cell">
+                    <div className="plan-history-metadata-label">Consistency</div>
+                    <div className="plan-history-metadata-value">{scores.consistency ?? 0}/5</div>
+                  </div>
+                  <div className="plan-history-metadata-cell">
+                    <div className="plan-history-metadata-label">Energy Mgmt</div>
+                    <div className="plan-history-metadata-value">{scores.energy ?? 0}/5</div>
+                  </div>
+                  <div className="plan-history-metadata-cell">
+                    <div className="plan-history-metadata-label">Deep Focus</div>
+                    <div className="plan-history-metadata-value">{scores.focus ?? 0}/5</div>
+                  </div>
+                </div>
+
+                {item.notes && (
+                  <div className="wr-notes-block">
+                    <div className="wr-notes-label">Reflection</div>
+                    <div className="wr-notes-text">{item.notes}</div>
+                  </div>
+                )}
+
+                {item.insight && (
+                  <div className="wr-insight-block">
+                    <div className="wr-insight-label">AI Insight</div>
+                    <div className="wr-insight-text">{item.insight}</div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        );
       })}
   </div>
 </div>
@@ -3912,6 +4045,7 @@ const NAV = showAppNav
         setProfile={setProfile}
         onReset={handleReset}
         onGenerateNewPlan={handleGenerateNewPlan}
+        userId={userId}
       />
     </div>
   </>
