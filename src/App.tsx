@@ -3758,14 +3758,26 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
 
     {!weeklyReviewsLoading && weeklyReviews.length === 0 && (
       <div className="plan-history-empty">
-        No saved weekly reviews yet. Complete your first Weekly Review to see it here.
+        No weekly reviews yet. Complete a week and generate an insight to build your coaching memory.
       </div>
     )}
 
-    {!weeklyReviewsLoading &&
-      weeklyReviews.map((item) => {
+    {!weeklyReviewsLoading && (() => {
+      const currentActivePlanVersion: number | null =
+        plan && typeof plan === "object" && Object.keys(plan as object).length > 0
+          ? Number((plan as any).plan_version || (plan as any).planVersion || 1)
+          : planHistory.length > 0
+          ? (planHistory[0].plan_version ?? null)
+          : null;
+
+      return weeklyReviews.map((item) => {
         const isExpanded = expandedWeeklyReviewId === item.id;
         const scores = item.scores || {};
+        const reviewVersion: number | null = item.plan_version ?? null;
+        const isMismatch =
+          currentActivePlanVersion !== null &&
+          reviewVersion !== null &&
+          reviewVersion !== currentActivePlanVersion;
         const fmtWeekDate = (iso: string) => {
           const [y, m, d] = iso.split("-").map(Number);
           return new Date(y, m - 1, d).toLocaleDateString("en-US", {
@@ -3792,6 +3804,18 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
                 <div className="plan-history-meta">
                   Plan v{item.plan_version || 1} · {item.completion_pct ?? 0}% · {item.saved_days ?? 0} days
                 </div>
+                {isMismatch && (
+                  <div style={{
+                    marginTop: 4,
+                    fontFamily: "var(--font-mono)",
+                    fontSize: ".58rem",
+                    color: "var(--amber)",
+                    opacity: 0.7,
+                    letterSpacing: ".04em",
+                  }}>
+                    Reviewed on Plan v{reviewVersion} · current plan is v{currentActivePlanVersion}
+                  </div>
+                )}
               </div>
 
               <div className="plan-history-right">
@@ -3838,7 +3862,8 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
             )}
           </div>
         );
-      })}
+      });
+    })()}
   </div>
 </div>
     </div>
