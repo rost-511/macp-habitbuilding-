@@ -2338,16 +2338,38 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan }) {
       {/* Export */}
       <div className="set-section">
         <div className="set-sec-title">Export Your Plan</div>
-        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-        <button className="btn btn-main" onClick={exportJSON}>⬇ Export JSON</button>
-<button className="btn btn-main" onClick={exportCSV}>⬇ Export CSV (Habits)</button>
-<button className="btn btn-amber" onClick={onGenerateNewPlan}>
-  ✦ Generate New Plan
-</button>
-<button className="btn btn-ghost" onClick={onReset} style={{marginLeft:"auto",color:"var(--red)",borderColor:"rgba(201,82,82,0.3)"}}>
-  ↺ Start Over
-</button>
-        </div>
+        <div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "1fr auto 1fr",
+    alignItems: "center",
+    gap: 12,
+  }}
+>
+  <div style={{ display: "flex", justifyContent: "flex-start" }}>
+    <button className="btn btn-main" onClick={exportJSON}>
+      ⬇ Export JSON
+    </button>
+  </div>
+
+  <button className="btn btn-amber" onClick={onGenerateNewPlan}>
+    ✦ Generate New Plan
+  </button>
+
+  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+    <button
+      className="btn btn-ghost"
+      onClick={onReset}
+      style={{
+        minWidth: 166,
+        color: "var(--red)",
+        borderColor: "rgba(201,82,82,0.3)",
+      }}
+    >
+      ↺ Start Over
+    </button>
+  </div>
+</div>
       </div>
     </div>
   );
