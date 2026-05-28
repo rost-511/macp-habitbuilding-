@@ -709,6 +709,26 @@ body,#root{
   .tier-strip > div *{
     white-space:normal !important;
   }
+  .landing-shell .topbar{
+    height:56px !important;
+    min-height:56px !important;
+    padding:0 16px !important;
+    flex-wrap:nowrap !important;
+    align-items:center !important;
+  }
+  
+  .landing-shell .topbar-logo{
+    font-size:1.15rem !important;
+    flex:1 !important;
+  }
+  
+  .landing-shell .topbar-logo span{
+    display:inline !important;
+    font-size:.82rem !important;
+    opacity:.62 !important;
+    letter-spacing:.16em !important;
+    margin-left:4px !important;
+  }
 }
 `;
 
@@ -2821,7 +2841,7 @@ const [booting, setBooting] = useState(true);
   return (
     <>
       <style>{STYLES}</style>
-      <div className="app-shell grain">
+      <div className={`app-shell grain ${screen === "landing" ? "landing-shell" : ""}`}>
         {/* Top bar */}
         <div className="topbar">
           <div className="topbar-logo" onClick={()=>profile&&setScreen("dashboard")}>
