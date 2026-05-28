@@ -234,6 +234,36 @@ body,#root{
 }
 .gen-cursor{display:inline-block;width:2px;height:14px;background:var(--amber);animation:typing .7s step-end infinite;margin-left:2px;vertical-align:middle}
 .gen-spinner{display:flex;align-items:center;gap:12px;padding:8px 0;color:var(--text-dim);font-size:.85rem}
+.gen-preview{display:grid;gap:18px}
+.gen-preview-copy{font-size:.95rem;line-height:1.8;color:var(--text-mid)}
+.gen-preview-copy p{margin:0 0 12px}
+.gen-preview-copy p:last-child{margin-bottom:0}
+.gen-preview-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gen-preview-card{
+  padding:16px;border:1px solid var(--border);background:var(--surface2);
+  border-radius:var(--r);overflow:hidden;
+}
+.gen-preview-label{
+  font-family:var(--font-mono);font-size:.62rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--amber);margin-bottom:10px;
+}
+.gen-preview-title{
+  font-family:var(--font-display);font-size:1.1rem;line-height:1.25;
+  color:var(--text);font-weight:700;
+}
+.gen-preview-note{margin-top:8px;color:var(--text-mid);font-size:.86rem;line-height:1.6}
+.gen-preview-list{display:grid;gap:10px}
+.gen-preview-habit{
+  display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:10px;
+  padding-bottom:10px;border-bottom:1px solid var(--border);
+}
+.gen-preview-habit:last-child{padding-bottom:0;border-bottom:0}
+.gen-preview-habit span{color:var(--green)}
+.gen-preview-habit strong{color:var(--text);font-size:.9rem}
+.gen-preview-habit em{
+  font-style:normal;font-family:var(--font-mono);font-size:.6rem;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--text-dim);
+}
 .spinner{width:18px;height:18px;border:2px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0}
 
 /* ── Dashboard ── */
@@ -771,6 +801,17 @@ body,#root{
     align-self:center !important;
     display:inline-flex !important;
     justify-content:center !important;
+  }
+  .gen-preview-grid{
+    grid-template-columns:1fr !important;
+  }
+  
+  .gen-preview-habit{
+    grid-template-columns:auto 1fr !important;
+  }
+  
+  .gen-preview-habit em{
+    grid-column:2;
   }
 }
 `;
@@ -1384,7 +1425,8 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
-  const started = useRef(false);
+const [preview, setPreview] = useState<any>(null);
+const started = useRef(false);
 
   useEffect(() => {
     if (started.current) return;
@@ -1422,7 +1464,7 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
             profileSnapshot: profile,
           };
         }
-      
+        setPreview(parsedPlan);
         setSaving(true);
       
         try {
@@ -1440,13 +1482,15 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
     );
   }, []);
 
-  const renderText = (raw) =>
-    raw.split("\n").map((line, i) => {
-      const isHeader = /^[A-Z][A-Z &\/\-']+$/.test(line.trim()) && line.trim().length > 3;
-      return isHeader
-        ? <span key={i} className="gh">{line}</span>
-        : <span key={i}>{line}{"\n"}</span>;
-    });
+  const previewDashboard = preview?.dashboard || {};
+const previewFrog = previewDashboard?.frogTask;
+const previewHabits = Array.isArray(previewDashboard?.habits)
+  ? previewDashboard.habits.slice(0, 5)
+  : [];
+const previewSummary = String(preview?.aiPlanText || "")
+  .split(/\n{2,}/)
+  .map((p) => p.trim())
+  .filter(Boolean);
 
   return (
     <div className="wiz fu">
@@ -1463,20 +1507,67 @@ function Generating({ profile, onReady, supabase, onPlanGenerated }) {
           </div>
         </div>
         <div className="gen-body">
-          {!text && !err && (
-            <div className="gen-spinner">
-              <div className="spinner"/>
-              Analyzing schedule, goals, and energy level...
-            </div>
-          )}
-          {err && <div style={{color:"var(--red)",fontSize:".88rem"}}>Error: {err}<br/>Check that the API is connected.</div>}
-          {text && (
-            <div className="gen-text">
-              {renderText(text)}
-              {!done && <span className="gen-cursor"/>}
-            </div>
-          )}
+  {!done && !err && (
+    <div className="gen-spinner">
+      <div className="spinner" />
+      {text
+        ? "Structuring your personalized MACP routine..."
+        : "Analyzing schedule, goals, and energy level..."}
+    </div>
+  )}
+
+  {err && (
+    <div style={{ color: "var(--red)", fontSize: ".88rem" }}>
+      Error: {err}
+      <br />
+      Check that the API is connected.
+    </div>
+  )}
+
+  {done && preview && (
+    <div className="gen-preview">
+      <div className="gen-preview-copy">
+        {previewSummary.length > 0 ? (
+          previewSummary.map((p, i) => <p key={i}>{p}</p>)
+        ) : (
+          <p>Your personalized MACP routine is ready.</p>
+        )}
+      </div>
+
+      <div className="gen-preview-grid">
+        {previewFrog && (
+          <div className="gen-preview-card">
+            <div className="gen-preview-label">Highest leverage task</div>
+            <div className="gen-preview-title">{previewFrog.title}</div>
+            <div className="gen-preview-note">{previewFrog.description}</div>
+          </div>
+        )}
+
+        {previewDashboard?.weeklyReviewFocus && (
+          <div className="gen-preview-card">
+            <div className="gen-preview-label">Weekly focus</div>
+            <div className="gen-preview-title">{previewDashboard.weeklyReviewFocus}</div>
+          </div>
+        )}
+      </div>
+
+      {previewHabits.length > 0 && (
+        <div className="gen-preview-card">
+          <div className="gen-preview-label">Habit stack</div>
+          <div className="gen-preview-list">
+            {previewHabits.map((habit) => (
+              <div key={habit.id || habit.name} className="gen-preview-habit">
+                <span>✓</span>
+                <strong>{habit.name}</strong>
+                <em>{habit.tag}</em>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
+    </div>
+  )}
+</div>
       </div>
 
       <div className="btn-row">
