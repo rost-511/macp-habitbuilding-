@@ -830,20 +830,120 @@ const STEPS = [
 
 function Wizard({ onComplete }) {
   const [step, setStep] = useState(0);
+  const [error, setError] = useState("");
+
   const [P, setP] = useState({
     name:"", situation:"", wakeTime:"06:00", workout:"none",
     collegeHours:"", workHours:"", businessGoal:"",
     goals:[], mainGoal:"", energyLevel:7, constraints:"", freeHours:"2",
     categories:[], customHabits:[], week:1,
   });
-  const up = (k,v) => setP(p=>({...p,[k]:v}));
-  const tog = (k,v) => { const a=P[k]||[]; up(k, a.includes(v)?a.filter(x=>x!==v):[...a,v]); };
+  const up = (k, v) => {
+    setError("");
+    setP((p) => ({ ...p, [k]: v }));
+  };
+
+  const tog = (k, v) => {
+    setError("");
+    const a = P[k] || [];
+    up(k, a.includes(v) ? a.filter((x) => x !== v) : [...a, v]);
+  };
+
+  const isBlank = (value) =>
+    typeof value !== "string" || value.trim().length === 0;
+
+  const validHours = (value) => {
+    if (value === "" || value === null || value === undefined) return false;
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 && n <= 14;
+  };
+
+  const errorsForStep = (stepIndex) => {
+    if (stepIndex === 0) {
+      const missing = [];
+      if (isBlank(P.name)) missing.push("First name");
+      if (isBlank(P.situation)) missing.push("Current situation");
+      return missing;
+    }
+
+    if (stepIndex === 1) {
+      const missing = [];
+      if (isBlank(P.wakeTime)) missing.push("Wake time");
+      if (isBlank(P.workout)) missing.push("Workout preference");
+      if (!validHours(P.collegeHours)) missing.push("Study hours / day");
+      if (!validHours(P.workHours)) missing.push("Work hours / day");
+      return missing;
+    }
+
+    if (stepIndex === 2) {
+      const missing = [];
+      if (!P.goals.length) missing.push("Top goals");
+      if (isBlank(P.mainGoal)) missing.push("Main 90-day goal");
+      return missing;
+    }
+
+    if (stepIndex === 3) {
+      const missing = [];
+      if (!P.energyLevel) missing.push("Average daily energy");
+      if (isBlank(P.freeHours)) missing.push("Free hours per day");
+      if (isBlank(P.constraints)) missing.push("Constraints or challenges");
+      return missing;
+    }
+
+    if (stepIndex === 4) {
+      const missing = [];
+      if (!P.categories.length) missing.push("Focus areas");
+      return missing;
+    }
+
+    return [];
+  };
+
+  const firstBadStep = () => {
+    return STEPS.findIndex((_, index) => errorsForStep(index).length > 0);
+  };
 
   const s = STEPS[step];
-  const pct = ((step+1)/STEPS.length)*100;
+  const pct = ((step + 1) / STEPS.length) * 100;
 
-  const next = () => setStep(s=>Math.min(s+1, STEPS.length-1));
-  const back = () => setStep(s=>Math.max(s-1, 0));
+  const next = () => {
+    const missing = errorsForStep(step);
+
+    if (missing.length) {
+      setError(`Fill this before continuing: ${missing.join(", ")}`);
+      return;
+    }
+
+    setError("");
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  };
+
+  const back = () => {
+    setError("");
+    setStep((s) => Math.max(s - 1, 0));
+  };
+
+  const finish = () => {
+    const badStep = firstBadStep();
+
+    if (badStep !== -1) {
+      setStep(badStep);
+      setError(`Fill this before generating: ${errorsForStep(badStep).join(", ")}`);
+      return;
+    }
+
+    setError("");
+
+    onComplete({
+      ...P,
+      name: P.name.trim(),
+      collegeHours: String(P.collegeHours).trim(),
+      workHours: String(P.workHours).trim(),
+      businessGoal: P.businessGoal.trim(),
+      mainGoal: P.mainGoal.trim(),
+      constraints: P.constraints.trim(),
+    });
+  };
 
   return (
     <div className="wiz fu">
@@ -955,12 +1055,26 @@ function Wizard({ onComplete }) {
           </div>
         </div>
       )}
-
+      {error && (
+        <div
+          style={{
+            marginTop: 18,
+            padding: "12px 14px",
+            border: "1px solid rgba(201,64,64,0.35)",
+            background: "rgba(201,64,64,0.08)",
+            color: "var(--red)",
+            borderRadius: 10,
+            fontSize: ".86rem",
+          }}
+        >
+          {error}
+        </div>
+      )}
       <div className="btn-row">
         {step>0 && <button className="btn btn-ghost" onClick={back}>← Back</button>}
         {step<STEPS.length-1
           ? <button className="btn btn-amber" onClick={next}>Continue →</button>
-          : <button className="btn btn-amber" onClick={()=>onComplete(P)}>Generate My Plan ✦</button>
+          : <button className="btn btn-amber" onClick={finish}>Generate My Plan ✦</button>
         }
       </div>
     </div>
