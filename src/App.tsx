@@ -10,7 +10,7 @@ import {
   getProgressMonth,
   getProgressByDate,
   saveWeeklyReview,
-  resetMyAppData,
+  resetUserAppData,
   getPlanHistory,
   getWeeklyReviews,
 } from "./lib/userData";
@@ -4063,7 +4063,7 @@ const [booting, setBooting] = useState(true);
     }
 
     const ok = window.confirm(
-      "Start over? This will delete your current plan and saved daily progress. Your account stays signed in."
+      "Start over? This permanently deletes your current plan, plan history, daily progress, and weekly reviews. Your account stays signed in. This cannot be undone."
     );
 
     if (!ok) return;
@@ -4071,7 +4071,7 @@ const [booting, setBooting] = useState(true);
     setBooting(true);
 
     try {
-      await resetMyAppData(supabase, userId);
+      await resetUserAppData(supabase, userId);
 
       setPlan(null);
       setProfile(null);

@@ -257,22 +257,54 @@ export async function saveWeeklyReview(
   if (error) throw error;
   return data;
 }
-export async function resetMyAppData(
+function isMissingTableError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const code = (error as { code?: string }).code;
+  // 42P01 = undefined_table (Postgres); PGRST205 = table not in PostgREST schema cache
+  return code === "42P01" || code === "PGRST205";
+}
+
+async function deleteUserRows(
+  supabase: SupabaseClient,
+  table: string,
+  clerkUserId: string,
+  optional: boolean
+) {
+  const { error } = await supabase
+    .from(table)
+    .delete()
+    .eq("clerk_user_id", clerkUserId);
+
+  if (!error) return;
+
+  // A missing optional table should never abort the full reset.
+  if (optional && isMissingTableError(error)) {
+    console.warn(`Skipping reset of "${table}" (table not present).`);
+    return;
+  }
+
+  throw error;
+}
+
+// Full destructive reset for the signed-in user only. Every delete is scoped by
+// clerk_user_id (RLS-backed). Never touches the Clerk auth account or other users.
+export async function resetUserAppData(
   supabase: SupabaseClient,
   clerkUserId: string
 ) {
-  const { error: progressError } = await supabase
-    .from("daily_progress")
-    .delete()
-    .eq("clerk_user_id", clerkUserId);
+  if (!clerkUserId) {
+    throw new Error("resetUserAppData requires a clerkUserId.");
+  }
 
-  if (progressError) throw progressError;
-  const { error: historyError } = await supabase
-    .from("plan_history")
-    .delete()
-    .eq("clerk_user_id", clerkUserId);
+  // Known user-owned tables — a real failure here must surface.
+  await deleteUserRows(supabase, "daily_progress", clerkUserId, false);
+  await deleteUserRows(supabase, "weekly_reviews", clerkUserId, false);
+  await deleteUserRows(supabase, "plan_history", clerkUserId, false);
+  await deleteUserRows(supabase, "app_settings", clerkUserId, false);
 
-  if (historyError) throw historyError;
+  // Optional tables that may not exist in every environment.
+  await deleteUserRows(supabase, "progress_events", clerkUserId, true);
+
   const { data, error: profileError } = await supabase
     .from("profiles")
     .update({
@@ -294,12 +326,15 @@ export async function resetMyAppData(
       before_data: null,
       after_data: {
         cleared_daily_progress: true,
+        cleared_weekly_reviews: true,
+        cleared_plan_history: true,
+        cleared_app_settings: true,
         cleared_current_plan: true,
         cleared_onboarding_answers: true,
       },
     });
   } catch {
-    // not fatal
+    // Logging the reset is best-effort and must not fail the reset.
   }
 
   return data;
