@@ -1330,7 +1330,13 @@ function fmtSecs(s) {
 /* ─────────────────────────────────────────────────────────────────────────────
    API — STREAMING CLAUDE
 ───────────────────────────────────────────────────────────────────────────── */
-async function streamClaude(prompt, eventType, getToken, onChunk, onDone, onError) {
+interface QuotaInfo {
+  limit: number;
+  used: number;
+  resetsAt: string;
+}
+
+async function streamClaude(prompt, eventType, getToken, onChunk, onDone, onError: (message: string, quotaInfo?: QuotaInfo) => void) {
   try {
     let token = null;
     try {
@@ -1350,9 +1356,17 @@ async function streamClaude(prompt, eventType, getToken, onChunk, onDone, onErro
 
     if (!res.ok) {
       const errorData = await res.json().catch(() => null);
-      throw new Error(
-        errorData?.details || errorData?.error || "Failed to generate plan"
-      );
+      const message = errorData?.details || errorData?.error || "Failed to generate plan";
+      if (errorData?.code === "quota_exceeded") {
+        const quotaInfo: QuotaInfo = {
+          limit: errorData.limit ?? 0,
+          used: errorData.used ?? 0,
+          resetsAt: errorData.resetsAt ?? "",
+        };
+        onError(message, quotaInfo);
+        return;
+      }
+      throw new Error(message);
     }
 
     const data = await res.json();
@@ -1885,6 +1899,7 @@ function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan,
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
+  const [quotaInfo, setQuotaInfo] = useState<QuotaInfo | null>(null);
   const [saving, setSaving] = useState(false);
 const [preview, setPreview] = useState<any>(null);
 const started = useRef(false);
@@ -2021,7 +2036,7 @@ previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
           setSaving(false);
         }
       },
-      e => setErr(e)
+      (msg, quota) => { setErr(msg); setQuotaInfo(quota ?? null); }
     );
     };
 
@@ -2063,11 +2078,20 @@ const previewSummary = String(preview?.aiPlanText || "")
   )}
 
   {err && (
-    <div style={{ color: "var(--red)", fontSize: ".88rem" }}>
-      Error: {err}
-      <br />
-      Check that the API is connected.
-    </div>
+    quotaInfo ? (
+      <div style={{ color: "var(--red)", fontSize: ".88rem" }}>
+        <div style={{ fontWeight: 600, marginBottom: 4 }}>Daily AI limit reached</div>
+        <div>You've used {quotaInfo.used} of {quotaInfo.limit} AI generations today.</div>
+        <div style={{ marginTop: 4, opacity: 0.75 }}>Try again after the daily reset.</div>
+        {/* TODO: upgrade CTA */}
+      </div>
+    ) : (
+      <div style={{ color: "var(--red)", fontSize: ".88rem" }}>
+        Error: {err}
+        <br />
+        Check that the API is connected.
+      </div>
+    )
   )}
 
   {done && preview && (
@@ -3212,6 +3236,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
 
     let generatedInsight = "";
     let generationError = "";
+    let generationQuotaInfo: QuotaInfo | undefined;
 
     await streamClaude(
       buildReviewPrompt(profile, scores, notes, simsCompletion, plan),
@@ -3222,14 +3247,21 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
         setInsight((text) => text + chunk);
       },
       () => {},
-      (errorMessage) => {
+      (errorMessage, quotaInfo) => {
         generationError = errorMessage;
+        generationQuotaInfo = quotaInfo;
       }
     );
 
     if (generationError) {
       setLoading(false);
-      setReviewSaveStatus("AI generation failed. Try again.");
+      // Show the API's message for quota blocks; generic copy for other errors.
+      // TODO: upgrade CTA for quota_exceeded
+      setReviewSaveStatus(
+        generationQuotaInfo
+          ? generationError
+          : "AI generation failed. Try again."
+      );
       setSaveError(true);
       runningRef.current = false;
       return;
