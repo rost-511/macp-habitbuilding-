@@ -299,7 +299,7 @@ body,#root{
 }
 
 .current-plan-body{
-  padding:13px 16px;
+  padding:16px 20px;
 }
 
 .current-plan-top{
@@ -939,19 +939,29 @@ body,#root{
     width:100%;
     display:grid;
     grid-template-columns:repeat(4,1fr);
-    gap:5px;
+    gap:4px;
     padding-top:2px;
   }
 
   .topbar-btn{
     width:100%;
-    font-size:.48rem;
-    padding:8px 3px;
+    font-size:.58rem;
+    line-height:1.1;
+    padding:7px 4px;
+    min-height:40px;
     text-align:center;
     justify-content:center;
-    white-space:nowrap;
+    white-space:normal;
+    overflow-wrap:normal;
     border-radius:10px;
-    letter-spacing:.05em;
+    letter-spacing:.02em;
+  }
+
+  .topbar-nav .topbar-btn:nth-child(3),
+  .topbar-nav .topbar-btn:nth-child(4){
+    font-size:.54rem;
+    letter-spacing:.01em;
+    line-height:1.05;
   }
 
   .page{
@@ -966,6 +976,9 @@ body,#root{
   .set{
     padding-top:18px;
   }
+
+  .rev-h1{font-size:1.75rem}
+  .set-h1{font-size:1.75rem}
   .calendar-top{
     justify-content:center;
     text-align:center;
@@ -1008,8 +1021,13 @@ body,#root{
   
   .stats{grid-template-columns:1fr 1fr}
 
+  .stat{padding:14px 16px}
+  .stat-val{font-size:2rem}
+  .stat-lbl{font-size:.72rem}
+  .stat-note{font-size:.78rem}
+
   .current-plan-body{
-    padding:12px 14px;
+    padding:16px;
   }
 
   .current-plan-top{
@@ -1021,6 +1039,9 @@ body,#root{
     gap:5px;
   }
 
+  .dash-top{flex-direction:column;align-items:center;text-align:center;gap:12px}
+  .dash-greet{font-size:1.6rem}
+  .dash-date{letter-spacing:.08em}
   .dgrid{grid-template-columns:1fr}
   .dright{position:static}
   .land-h1{font-size:3rem}
