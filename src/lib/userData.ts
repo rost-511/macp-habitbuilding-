@@ -1,9 +1,13 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-export async function getMyProfile(supabase: SupabaseClient) {
+export async function getMyProfile(
+  supabase: SupabaseClient,
+  clerkUserId: string
+) {
   const { data, error } = await supabase
     .from("profiles")
     .select("*")
+    .eq("clerk_user_id", clerkUserId)
     .maybeSingle();
 
   if (error) throw error;
@@ -13,6 +17,7 @@ export async function getMyProfile(supabase: SupabaseClient) {
 
 export async function completeOnboarding(
   supabase: SupabaseClient,
+  clerkUserId: string,
   answers: Record<string, unknown>
 ) {
   const fullName = typeof answers.name === "string" ? answers.name : "";
@@ -21,6 +26,7 @@ export async function completeOnboarding(
     .from("profiles")
     .upsert(
       {
+        clerk_user_id: clerkUserId,
         full_name: fullName,
         onboarding_completed: true,
         onboarding_version: 1,
@@ -40,6 +46,7 @@ export async function completeOnboarding(
 
   await supabase.from("app_settings").upsert(
     {
+      clerk_user_id: clerkUserId,
       settings: {
         theme: "system",
         notifications: true,
@@ -53,6 +60,7 @@ export async function completeOnboarding(
 
 export async function saveCurrentPlan(
   supabase: SupabaseClient,
+  clerkUserId: string,
   plan: Record<string, unknown>
 ) {
   const planVersion = Number(plan.plan_version || plan.planVersion || 1);
@@ -78,6 +86,7 @@ export async function saveCurrentPlan(
     .from("profiles")
     .upsert(
       {
+        clerk_user_id: clerkUserId,
         current_plan: plan,
       },
       { onConflict: "clerk_user_id" }
@@ -92,6 +101,7 @@ export async function saveCurrentPlan(
       .from("plan_history")
       .upsert(
         {
+          clerk_user_id: clerkUserId,
           plan_version: planVersion,
           plan_reason: planReason,
           plan_generated_at: planGeneratedAt,
@@ -343,12 +353,16 @@ export async function resetUserAppData(
 
   return data;
 }
-export async function getPlanHistory(supabase: SupabaseClient) {
+export async function getPlanHistory(
+  supabase: SupabaseClient,
+  clerkUserId: string
+) {
   const { data, error } = await supabase
     .from("plan_history")
     .select(
       "id, plan_version, plan_reason, plan_generated_at, created_at, profile_snapshot, plan"
     )
+    .eq("clerk_user_id", clerkUserId)
     .order("plan_version", { ascending: false });
 
   if (error) throw error;

@@ -1991,10 +1991,16 @@ previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
           };
         }
         setPreview(parsedPlan);
+
+        if (!userId) {
+          setErr("Plan generated, but could not be saved (not signed in). Please sign in and try again.");
+          return;
+        }
+
         setSaving(true);
-      
+
         try {
-          await saveCurrentPlan(supabase, parsedPlan);
+          await saveCurrentPlan(supabase, userId, parsedPlan);
           onPlanGenerated(parsedPlan);
         } catch (e) {
           console.error("Failed to save plan:", e);
@@ -3394,10 +3400,15 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
     let cancelled = false;
 
     const loadPlanHistory = async () => {
+      if (!userId) {
+        if (!cancelled) setPlanHistory([]);
+        return;
+      }
+
       setHistoryLoading(true);
 
       try {
-        const rows = await getPlanHistory(supabase);
+        const rows = await getPlanHistory(supabase, userId);
         if (!cancelled) setPlanHistory(rows);
       } catch (error) {
         console.error("Failed to load plan history:", error);
@@ -3411,7 +3422,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
     return () => {
       cancelled = true;
     };
-  }, [supabase]);
+  }, [supabase, userId]);
 
   const tier = tierFor(profile.week||1);
   const [week, setWeek] = useState(profile.week||1);
@@ -3908,18 +3919,18 @@ function Landing({
   onStart: () => void;
   onDashboard?: () => void;
 }) {
-  const { isSignedIn } = useAuth(); // Checks if a user is logged in
+  const { isSignedIn, userId } = useAuth(); // Checks if a user is logged in
   const { openSignIn } = useClerk(); // Opens the popup modal dynamically
   const supabase = useSupabase();
 
   const handleAssessmentClick = async () => {
-    if (!isSignedIn) {
+    if (!isSignedIn || !userId) {
       openSignIn({ mode: "modal" });
       return;
     }
-  
+
     try {
-      const profile = await getMyProfile(supabase);
+      const profile = await getMyProfile(supabase, userId);
   
       if (profile?.onboarding_completed) {
         onDashboard();
@@ -4038,13 +4049,13 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
     async function checkSavedUser() {
       if (!isLoaded) return;
   
-      if (!isSignedIn) {
+      if (!isSignedIn || !userId) {
         setBooting(false);
         return;
       }
-  
+
       try {
-        const savedProfile = await getMyProfile(supabase);
+        const savedProfile = await getMyProfile(supabase, userId);
   
         if (savedProfile?.onboarding_completed) {
           setProfile(savedProfile.onboarding_answers);
@@ -4068,7 +4079,7 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
     }
   
     checkSavedUser();
-  }, [isLoaded, isSignedIn, supabase]);
+  }, [isLoaded, isSignedIn, userId, supabase]);
 
   useEffect(() => {
     if (!isSignedIn || !userId) return;
@@ -4089,9 +4100,14 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
 
   const handleWizardComplete = async (p) => {
     setProfile(p);
-  
+
+    if (!userId) {
+      alert("You must be signed in to save your assessment.");
+      return;
+    }
+
     try {
-      await completeOnboarding(supabase, p);
+      await completeOnboarding(supabase, userId, p);
       setScreen("generating");
     } catch (error) {
       console.error("Failed to save onboarding:", error);
