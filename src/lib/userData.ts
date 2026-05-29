@@ -375,7 +375,9 @@ export async function getWeeklyReviews(
 ) {
   const { data, error } = await supabase
     .from("weekly_reviews")
-    .select("*")
+    .select(
+      "id, week_start, week_end, plan_version, plan_reason, plan_generated_at, plan_snapshot, completion_pct, saved_days, scores, notes, insight, created_at, updated_at"
+    )
     .eq("clerk_user_id", clerkUserId)
     .order("week_start", { ascending: false })
     .limit(12);

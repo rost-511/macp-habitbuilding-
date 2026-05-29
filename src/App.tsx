@@ -3510,13 +3510,16 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
       next_coaching_focus: activeDashboard?.weeklyReviewFocus || null,
     };
 
+    // Strip internal auth identifiers that must never appear in user-facing exports.
+    const sanitizeRow = ({ clerk_user_id: _cid, user_id: _uid, ...rest }: any) => rest;
+
     const data = {
       profile,
       exportedAt: new Date().toISOString(),
       tier: tier.label,
       timeline: makeTimeline(profile),
       plan_history: planHistory,
-      weekly_reviews: weeklyReviews,
+      weekly_reviews: weeklyReviews.map(sanitizeRow),
       ai_memory_snapshot,
     };
     const blob = new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
