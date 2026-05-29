@@ -3046,7 +3046,7 @@ function CalendarPage({ supabase, userId }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
-function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
+function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReviewSaved = null }) {
   const [scores, setScores] = useState({ consistency:0, energy:0, focus:0 });
   const [notes, setNotes] = useState("");
   const [insight, setInsight] = useState("");
@@ -3198,7 +3198,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
       const weekEnd = new Date(weekStart);
       weekEnd.setDate(weekStart.getDate() + 6);
 
-      await saveWeeklyReview(supabase, userId, {
+      const savedRow = await saveWeeklyReview(supabase, userId, {
         week_start: weekStart.toISOString().slice(0, 10),
         week_end: weekEnd.toISOString().slice(0, 10),
         plan_version: Number(reviewPlanVersion) || 1,
@@ -3214,6 +3214,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
 
       setReviewSaveStatus("Saved to weekly history.");
       setDone(true);
+      if (onReviewSaved) onReviewSaved(savedRow);
     } catch (error) {
       console.error("Failed to save weekly review:", error);
       setReviewSaveStatus("Insight generated, but saving failed.");
@@ -3332,13 +3333,11 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    SETTINGS / PROFILE
 ───────────────────────────────────────────────────────────────────────────── */
-function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, plan }) {
+function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, plan, weeklyReviews, weeklyReviewsLoading }) {
   const supabase = useSupabase();
   const [planHistory, setPlanHistory] = useState<any[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(null);
-  const [weeklyReviews, setWeeklyReviews] = useState<any[]>([]);
-  const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
   const [expandedWeeklyReviewId, setExpandedWeeklyReviewId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -3363,27 +3362,6 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
       cancelled = true;
     };
   }, [supabase]);
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!userId) return;
-
-    const loadWeeklyReviews = async () => {
-      setWeeklyReviewsLoading(true);
-      try {
-        const rows = await getWeeklyReviews(supabase, userId);
-        if (!cancelled) setWeeklyReviews(rows);
-      } catch (error) {
-        console.error("Failed to load weekly reviews:", error);
-      } finally {
-        if (!cancelled) setWeeklyReviewsLoading(false);
-      }
-    };
-
-    loadWeeklyReviews();
-
-    return () => { cancelled = true; };
-  }, [supabase, userId]);
 
   const tier = tierFor(profile.week||1);
   const [week, setWeek] = useState(profile.week||1);
@@ -4000,6 +3978,8 @@ export default function App() {
 const [profile, setProfile] = useState<any>(null);
 const [plan, setPlan] = useState<any>(null);
 const [booting, setBooting] = useState(true);
+const [weeklyReviews, setWeeklyReviews] = useState<any[]>([]);
+const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
 
   const supabase = useSupabase();
   const { isLoaded, isSignedIn, userId } = useAuth();
@@ -4040,6 +4020,23 @@ const [booting, setBooting] = useState(true);
     checkSavedUser();
   }, [isLoaded, isSignedIn, supabase]);
 
+  useEffect(() => {
+    if (!isSignedIn || !userId) return;
+    let cancelled = false;
+
+    setWeeklyReviewsLoading(true);
+    getWeeklyReviews(supabase, userId)
+      .then(rows => { if (!cancelled) setWeeklyReviews(rows || []); })
+      .catch(err => console.error("Failed to load weekly reviews:", err))
+      .finally(() => { if (!cancelled) setWeeklyReviewsLoading(false); });
+
+    return () => { cancelled = true; };
+  }, [isSignedIn, userId, supabase]);
+
+  const handleReviewSaved = useCallback((savedRow: any) => {
+    setWeeklyReviews(prev => [savedRow, ...prev.filter(r => r.id !== savedRow.id)]);
+  }, []);
+
   const handleWizardComplete = async (p) => {
     setProfile(p);
   
@@ -4075,6 +4072,7 @@ const [booting, setBooting] = useState(true);
 
       setPlan(null);
       setProfile(null);
+      setWeeklyReviews([]);
       setScreen("wizard");
     } catch (error) {
       console.error("Failed to start over:", error);
@@ -4208,6 +4206,7 @@ const NAV = showAppNav
   supabase={supabase}
   userId={userId}
   screen={screen}
+  onReviewSaved={handleReviewSaved}
 />
     </div>
 
@@ -4219,6 +4218,8 @@ const NAV = showAppNav
         onGenerateNewPlan={handleGenerateNewPlan}
         userId={userId}
         plan={plan}
+        weeklyReviews={weeklyReviews}
+        weeklyReviewsLoading={weeklyReviewsLoading}
       />
     </div>
   </>
