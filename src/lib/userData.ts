@@ -125,15 +125,18 @@ export async function getTodayProgress(
   supabase: SupabaseClient,
   clerkUserId: string
 ) {
+  // Order by updated_at desc and limit 1 so the UI stays usable even if a
+  // legacy duplicate row exists for (clerk_user_id, progress_date).
   const { data, error } = await supabase
     .from("daily_progress")
     .select("*")
     .eq("clerk_user_id", clerkUserId)
     .eq("progress_date", todayKey())
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
   if (error) throw error;
-  return data;
+  return data && data.length > 0 ? data[0] : null;
 }
 
 export async function saveTodayProgress(
@@ -209,10 +212,11 @@ export async function getProgressByDate(
     .select("*")
     .eq("clerk_user_id", clerkUserId)
     .eq("progress_date", date)
-    .maybeSingle();
+    .order("updated_at", { ascending: false })
+    .limit(1);
 
   if (error) throw error;
-  return data;
+  return data && data.length > 0 ? data[0] : null;
 }
 export async function saveWeeklyReview(
   supabase: SupabaseClient,
