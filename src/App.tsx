@@ -1330,7 +1330,7 @@ function fmtSecs(s) {
 /* ─────────────────────────────────────────────────────────────────────────────
    API — STREAMING CLAUDE
 ───────────────────────────────────────────────────────────────────────────── */
-async function streamClaude(prompt, getToken, onChunk, onDone, onError) {
+async function streamClaude(prompt, eventType, getToken, onChunk, onDone, onError) {
   try {
     let token = null;
     try {
@@ -1345,7 +1345,7 @@ async function streamClaude(prompt, getToken, onChunk, onDone, onError) {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ prompt, event_type: eventType }),
     });
 
     if (!res.ok) {
@@ -1947,6 +1947,7 @@ const started = useRef(false);
 
       streamClaude(
         buildPlanPrompt(profile, memoryContext),
+        "plan_generation",
       getToken,
       chunk => setText(t=>t+chunk),
       async (fullText) => {
@@ -3214,6 +3215,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
 
     await streamClaude(
       buildReviewPrompt(profile, scores, notes, simsCompletion, plan),
+      "weekly_review",
       getToken,
       (chunk) => {
         generatedInsight += chunk;
