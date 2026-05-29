@@ -3051,8 +3051,11 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
   const [notes, setNotes] = useState("");
   const [insight, setInsight] = useState("");
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const [reviewSaveStatus, setReviewSaveStatus] = useState("");
+  const [saveError, setSaveError] = useState(false);
+  const runningRef = useRef(false);
   const [reviewStatsReady, setReviewStatsReady] = useState(false);
   const [reviewWeekCompletion, setReviewWeekCompletion] = useState(0);
   const [reviewSavedDays, setReviewSavedDays] = useState(0);
@@ -3158,10 +3161,15 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
   const simsCompletion = reviewWeekCompletion;
 
   const run = async () => {
+    if (runningRef.current) return;
+    runningRef.current = true;
+
     setLoading(true);
+    setSaving(false);
     setInsight("");
     setDone(false);
     setReviewSaveStatus("");
+    setSaveError(false);
 
     let generatedInsight = "";
     let generationError = "";
@@ -3181,15 +3189,20 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
     if (generationError) {
       setLoading(false);
       setReviewSaveStatus("AI generation failed. Try again.");
+      setSaveError(true);
+      runningRef.current = false;
       return;
     }
 
     if (!generatedInsight.trim()) {
       setLoading(false);
-      setReviewSaveStatus("No weekly insight was generated.");
+      setReviewSaveStatus("No insight was generated. Try again.");
+      setSaveError(true);
+      runningRef.current = false;
       return;
     }
 
+    setSaving(true);
     try {
       const today = new Date();
       const weekStart = new Date(today);
@@ -3212,15 +3225,19 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
         insight: generatedInsight.trim(),
       });
 
-      setReviewSaveStatus("Saved to weekly history.");
+      setReviewSaveStatus("Insight saved to weekly history.");
+      setSaveError(false);
       setDone(true);
       if (onReviewSaved) onReviewSaved(savedRow);
     } catch (error) {
       console.error("Failed to save weekly review:", error);
-      setReviewSaveStatus("Insight generated, but saving failed.");
+      setReviewSaveStatus("Insight generated, but failed to save.");
+      setSaveError(true);
       setDone(true);
     } finally {
+      setSaving(false);
       setLoading(false);
+      runningRef.current = false;
     }
   };
 
@@ -3297,15 +3314,27 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
 
       <div style={{marginBottom:28}}>
         <button className="btn btn-amber" onClick={run} disabled={loading}>
-          {loading ? "Analyzing your week..." : "✦ Generate AI Weekly Insight"}
+          {saving
+            ? "Saving insight…"
+            : loading
+            ? "Analyzing your week…"
+            : "✦ Generate AI Weekly Insight"}
         </button>
 
-        {reviewSaveStatus && (
+        {reviewSaveStatus && !loading && (
           <div style={{
-            marginTop:10,
-            color:reviewSaveStatus.includes("failed") ? "var(--red)" : "var(--text-dim)",
-            fontSize:".82rem",
+            marginTop: 12,
+            padding: "10px 14px",
+            borderRadius: 8,
+            border: `1px solid ${saveError ? "rgba(201,64,64,0.35)" : "rgba(45,158,95,0.35)"}`,
+            background: saveError ? "rgba(201,64,64,0.08)" : "rgba(45,158,95,0.08)",
+            color: saveError ? "var(--red)" : "var(--green)",
+            fontSize: ".82rem",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
           }}>
+            <span>{saveError ? "✕" : "✓"}</span>
             {reviewSaveStatus}
           </div>
         )}
