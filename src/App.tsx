@@ -1330,12 +1330,20 @@ function fmtSecs(s) {
 /* ─────────────────────────────────────────────────────────────────────────────
    API — STREAMING CLAUDE
 ───────────────────────────────────────────────────────────────────────────── */
-async function streamClaude(prompt, onChunk, onDone, onError) {
+async function streamClaude(prompt, getToken, onChunk, onDone, onError) {
   try {
+    let token = null;
+    try {
+      token = typeof getToken === "function" ? await getToken() : null;
+    } catch {
+      token = null;
+    }
+
     const res = await fetch("/api/generate-plan", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ prompt }),
     });
@@ -1873,6 +1881,7 @@ function Wizard({ onComplete, initialProfile = null }) {
    GENERATING SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
 function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan, userId }) {
+  const { getToken } = useAuth();
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
   const [err, setErr] = useState("");
@@ -1938,6 +1947,7 @@ const started = useRef(false);
 
       streamClaude(
         buildPlanPrompt(profile, memoryContext),
+      getToken,
       chunk => setText(t=>t+chunk),
       async (fullText) => {
         setDone(true);
@@ -3074,6 +3084,7 @@ function CalendarPage({ supabase, userId }) {
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
 function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReviewSaved = null }) {
+  const { getToken } = useAuth();
   const [scores, setScores] = useState({ consistency:0, energy:0, focus:0 });
   const [notes, setNotes] = useState("");
   const [insight, setInsight] = useState("");
@@ -3203,6 +3214,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
 
     await streamClaude(
       buildReviewPrompt(profile, scores, notes, simsCompletion, plan),
+      getToken,
       (chunk) => {
         generatedInsight += chunk;
         setInsight((text) => text + chunk);
