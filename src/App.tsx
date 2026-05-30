@@ -2719,7 +2719,6 @@ const frogDesc =
                           <div style={{ fontWeight: 600, marginBottom: 4 }}>Daily AI limit reached</div>
                           <div>You've used {recoveryQuotaInfo.used} of {recoveryQuotaInfo.limit} AI generations today.</div>
                           <div style={{ marginTop: 4, opacity: 0.75 }}>Try again after the daily reset.</div>
-                          {!isPremium && <UpgradePlaceholder />}
                         </>
                       ) : (
                         <div>Could not generate recovery brief. Check your connection and try again.</div>
