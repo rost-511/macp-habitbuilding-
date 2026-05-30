@@ -1852,7 +1852,7 @@ const started = useRef(false);
       }
 
       streamClaude(
-        buildPlanPrompt(profile, memoryContext),
+        buildPlanPrompt(profile, memoryContext, tierFor(profile.week || 1).label),
         "plan_generation",
       getToken,
       chunk => setText(t=>t+chunk),
