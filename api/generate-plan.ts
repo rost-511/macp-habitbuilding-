@@ -13,10 +13,18 @@ const OPENAI_MODEL = "gpt-4.1-mini";
 const ALLOWED_EVENT_TYPES = ["plan_generation", "weekly_review"] as const;
 type EventType = (typeof ALLOWED_EVENT_TYPES)[number];
 
-// Temporary per-user daily cap until full entitlements land (UTC day window).
+// Free-tier daily cap (UTC day window). Used when a user has no entitlement
+// row, is not active premium, or when the entitlement read fails.
 function dailyLimit(): number {
   const parsed = Number.parseInt(process.env.AI_DAILY_LIMIT ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 3;
+}
+
+// Premium daily cap. Higher than free but never unlimited, to bound OpenAI
+// spend even for premium accounts (e.g. a leaked token or a scripted client).
+function premiumDailyLimit(): number {
+  const parsed = Number.parseInt(process.env.AI_DAILY_LIMIT_PREMIUM ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 50;
 }
 
 // Start of the current UTC day and the next UTC midnight (quota reset point).
@@ -73,6 +81,55 @@ async function logUsage(
       "generate-plan: usage log threw:",
       e instanceof Error ? e.message : String(e)
     );
+  }
+}
+
+// Resolve this user's effective daily limit from user_entitlements using the
+// service-role client (which bypasses RLS). Privilege fails CLOSED: a missing
+// row or any read error degrades to the free limit — never premium. A positive
+// ai_daily_limit override wins regardless of tier; otherwise premium applies
+// only while status is active/trialing. Entitlement fields are read solely to
+// size the limit and are never returned to the client.
+async function resolveDailyLimit(
+  supabase: SupabaseClient,
+  clerkUserId: string
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from("user_entitlements")
+      .select("tier, status, ai_daily_limit")
+      .eq("clerk_user_id", clerkUserId)
+      .maybeSingle();
+
+    if (error) {
+      console.warn(
+        "generate-plan: entitlement read failed, treating as free:",
+        error.message
+      );
+      return dailyLimit();
+    }
+
+    // No entitlement row → free.
+    if (!data) {
+      return dailyLimit();
+    }
+
+    // A positive per-user override wins regardless of tier (still bounded).
+    if (typeof data.ai_daily_limit === "number" && data.ai_daily_limit > 0) {
+      return data.ai_daily_limit;
+    }
+
+    const premiumActive =
+      data.tier === "premium" &&
+      (data.status === "active" || data.status === "trialing");
+
+    return premiumActive ? premiumDailyLimit() : dailyLimit();
+  } catch (entError) {
+    console.warn(
+      "generate-plan: entitlement check threw, treating as free:",
+      entError instanceof Error ? entError.message : String(entError)
+    );
+    return dailyLimit();
   }
 }
 
@@ -149,10 +206,12 @@ export default async function handler(req: any, res: any) {
       });
     }
 
-    // --- Temporary daily cap: count only this user's successful calls today,
-    // enforced before any OpenAI spend. Counting issues fail open. ---
+    // --- Entitlement-driven daily cap: count only this user's successful
+    // calls today, enforced before any OpenAI spend. The count failing open
+    // preserves availability; the limit itself fails closed to free (see
+    // resolveDailyLimit), so a read error never grants premium access. ---
     if (supabase) {
-      const limit = dailyLimit();
+      const limit = await resolveDailyLimit(supabase, clerkUserId);
       const { startOfDay, resetsAt } = utcDayWindow();
       try {
         const { count, error: countError } = await supabase
