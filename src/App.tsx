@@ -2446,6 +2446,7 @@ const frogDesc =
           task={frogTask}
           onExit={()=>setFocusMode(false)}
           onDone={() => {
+            if (!frogDone) setAnalytics((a) => ({ ...a, frogWeek: a.frogWeek + 1 }));
             setFrogDone(true);
             setFocusMode(false);
             persistProgress({ frog_done: true });
@@ -2601,6 +2602,7 @@ const frogDesc =
                     onClick={() => {
                       const next = !frogDone;
                       setFrogDone(next);
+                      setAnalytics((a) => ({ ...a, frogWeek: Math.max(0, a.frogWeek + (next ? 1 : -1)) }));
                       persistProgress({ frog_done: next });
                     }}
                   >{frogDone?"✓ Frog eaten!":"Mark Complete"}</button>
