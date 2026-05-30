@@ -7,6 +7,7 @@ import { buildModeBlock, type PlanMode } from "./planModes";
 
 export const PLAN_PROMPT_VERSION = "plan-v2.1";
 export const REVIEW_PROMPT_VERSION = "review-v2";
+export const RECOVERY_PROMPT_VERSION = "recovery-v1";
 
 export function buildPlanPrompt(
   profile: any,
@@ -184,4 +185,90 @@ RECOVERY PROTOCOL
 If days were missed: a 2-minute minimum restart and a never-miss-twice rule. No guilt — only action.
 
 Keep the whole review around 200–260 words.`;
+}
+
+export interface RecoverySignals {
+  weekCompletion?: number;
+  streak?: number;
+  savedDays?: number;
+  weekPcts?: number[];
+  frogDone?: boolean;
+  mostMissedHabits?: string;
+  planMode?: string;
+  tierLabel?: string;
+  week?: number;
+  planFocus?: string;
+  latestReviewInsight?: string;
+}
+
+export function buildRecoveryPrompt(
+  profile: any,
+  signals: RecoverySignals = {}
+): string {
+  const name = profile?.name || "there";
+  const mode = signals.planMode || "general";
+  const tierLabel = signals.tierLabel || "Tier 1 · Foundation";
+  const week = signals.week || profile?.week || 1;
+  const weekCompletion = typeof signals.weekCompletion === "number" ? signals.weekCompletion : null;
+  const streak = typeof signals.streak === "number" ? signals.streak : null;
+  const savedDays = typeof signals.savedDays === "number" ? signals.savedDays : null;
+  const frogDone = signals.frogDone ?? false;
+  const missedHabits = signals.mostMissedHabits || "not available";
+  const planFocus = signals.planFocus || "not specified";
+  const latestInsight = signals.latestReviewInsight || "";
+
+  const modeContext: Record<string, string> = {
+    general: "Focus on routine repair — restore one consistent anchor habit and the frog task.",
+    fitness: "Prioritize energy and recovery: even a 10-minute workout or walk counts. Protect sleep.",
+    exam: "Restart with one minimum viable study block (25 min active recall) before anything else.",
+    college: "Identify the most pressing deadline and clear 90 minutes for it — ignore everything else.",
+    deep_work: "Reset your distraction environment first, then protect one 60-minute focus block per day.",
+  };
+  const modeLine = modeContext[mode] || modeContext["general"];
+
+  const weekPtsSummary =
+    Array.isArray(signals.weekPcts) && signals.weekPcts.length === 7
+      ? signals.weekPcts
+          .map((pct, i) => {
+            const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+            return pct > 0 ? `${labels[i]} ${pct}%` : `${labels[i]} —`;
+          })
+          .join(", ")
+      : "";
+
+  return `You are the MACP recovery coach. Generate a short, practical recovery brief for this user.
+
+USER: ${name} | ${tierLabel} | Week ${week} | Plan mode: ${mode}
+
+CURRENT SIGNALS:
+- Week habit completion: ${weekCompletion !== null ? `${weekCompletion}%` : "unknown"}
+- Days logged this week: ${savedDays !== null ? `${savedDays} of 7` : "unknown"}
+- Current streak: ${streak !== null ? `${streak} day(s)` : "unknown"}
+- Daily pattern: ${weekPtsSummary || "not available"}
+- Most-missed habits: ${missedHabits}
+- Frog/keystone task done today: ${frogDone ? "yes" : "no"}
+- Plan weekly focus: ${planFocus}
+${latestInsight ? `- Last review note: "${latestInsight.slice(0, 300).replace(/\n/g, " ")}"` : ""}
+
+MODE GUIDANCE: ${modeLine}
+
+Write a recovery brief using EXACTLY these section headers (all uppercase, each on its own line):
+
+RECOVERY SNAPSHOT
+One honest sentence on where they actually are right now. No drama.
+
+TOP BOTTLENECK
+The single biggest friction point. Name a specific habit or behavior if one was missed — don't be vague.
+
+NEXT 72 HOURS
+3 concrete micro-actions for the next 3 days. Small, specific, doable without perfect conditions.
+
+FALLBACK RULE
+If things slip again today: one non-negotiable minimum action that keeps the streak alive.
+
+RULES:
+- Never say the user failed or is behind.
+- This is NOT a new full plan — it is a short recalibration.
+- Use second person. Be direct and warm.
+- Keep the entire output between 150 and 220 words.`;
 }

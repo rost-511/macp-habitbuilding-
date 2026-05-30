@@ -10,7 +10,7 @@ const MAX_PROMPT_LENGTH = 16000;
 const OPENAI_MODEL = "gpt-4.1-mini";
 
 // Only these AI call types are recognized; anything else is normalized below.
-const ALLOWED_EVENT_TYPES = ["plan_generation", "weekly_review"] as const;
+const ALLOWED_EVENT_TYPES = ["plan_generation", "weekly_review", "recovery_plan"] as const;
 type EventType = (typeof ALLOWED_EVENT_TYPES)[number];
 
 // Free-tier daily cap (UTC day window). Used when a user has no entitlement
