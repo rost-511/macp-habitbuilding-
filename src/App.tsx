@@ -1820,7 +1820,7 @@ function Wizard({ onComplete, initialProfile = null }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    GENERATING SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
-function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan, userId, isPremium = false }) {
+function Generating({ profile, onReady, onBack, supabase, onPlanGenerated, existingPlan, userId, isPremium = false }) {
   const { getToken } = useAuth();
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
@@ -2072,7 +2072,7 @@ const previewSummary = String(preview?.aiPlanText || "")
       </div>
 
       <div className="btn-row">
-      {done && !saving && (
+      {done && !saving && !err && (
   <button className="btn btn-amber" onClick={onReady}>
     Open My Dashboard →
   </button>
@@ -2081,6 +2081,12 @@ const previewSummary = String(preview?.aiPlanText || "")
 {done && saving && (
   <button className="btn btn-amber" disabled style={{ opacity: 0.6 }}>
     Saving your plan…
+  </button>
+)}
+
+{err && (
+  <button className="btn btn-ghost" onClick={onBack}>
+    ← {existingPlan && typeof existingPlan === "object" && Object.keys(existingPlan).length > 0 ? "Back to Dashboard" : "Back to Home"}
   </button>
 )}
       </div>
@@ -4226,6 +4232,7 @@ const NAV = showAppNav
   <Generating
     profile={profile}
     onReady={handlePlanReady}
+    onBack={plan && typeof plan === "object" && Object.keys(plan).length > 0 ? () => setScreen("dashboard") : () => setScreen("landing")}
     supabase={supabase}
     onPlanGenerated={handlePlanGenerated}
     existingPlan={plan}
