@@ -3,7 +3,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from
 import { useSupabase } from "./lib/useSupabase";
 import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
-import { buildPlanPrompt, buildReviewPrompt, PLAN_PROMPT_VERSION, REVIEW_PROMPT_VERSION } from "./lib/prompts";
+import { buildPlanPrompt, buildReviewPrompt, PLAN_PROMPT_VERSION, REVIEW_PROMPT_VERSION, buildRecoveryPrompt, RECOVERY_PROMPT_VERSION } from "./lib/prompts";
 import { PLAN_MODES, normalizePlanMode } from "./lib/planModes";
 import {
   getMyProfile,
@@ -2147,6 +2147,11 @@ const [progressReady, setProgressReady] = useState(false);
 const [celebrate, setCelebrate] = useState(false);
   const [newHabit, setNewHabit] = useState({ name:"", tag:"work" });
   const [showAdd, setShowAdd] = useState(false);
+  const { getToken } = useAuth();
+  const [recoveryText, setRecoveryText] = useState("");
+  const [recoveryLoading, setRecoveryLoading] = useState(false);
+  const [recoveryErr, setRecoveryErr] = useState("");
+  const [recoveryQuotaInfo, setRecoveryQuotaInfo] = useState<QuotaInfo | null>(null);
   const progressSnapshot = () => {
     const activePlan = (plan || {}) as any;
   
@@ -2297,6 +2302,47 @@ const [celebrate, setCelebrate] = useState(false);
   
     loadDashboardAnalytics();
   }, [supabase, userId]);
+
+  const generateRecoveryBrief = async () => {
+    if (recoveryLoading) return;
+    setRecoveryLoading(true);
+    setRecoveryErr("");
+    setRecoveryQuotaInfo(null);
+
+    const uncheckedToday = habits
+      .filter((h: any) => !checked[h.id])
+      .map((h: any) => h.name)
+      .slice(0, 3)
+      .join(", ");
+
+    const prompt = buildRecoveryPrompt(profile, {
+      weekCompletion: analytics.weekCompletion,
+      streak: analytics.streak,
+      savedDays: analytics.savedDays,
+      weekPcts: analytics.weekPcts,
+      frogDone,
+      mostMissedHabits: uncheckedToday || "",
+      planMode: normalizePlanMode((plan as any)?.plan_mode || profile.plan_mode),
+      tierLabel: tier.label,
+      week: profile.week || 1,
+      planFocus: (plan as any)?.dashboard?.weeklyReviewFocus || "",
+    });
+
+    await streamClaude(
+      prompt,
+      "recovery_plan",
+      getToken,
+      (chunk) => setRecoveryText((t) => t + chunk),
+      () => setRecoveryLoading(false),
+      (msg, quota) => {
+        setRecoveryErr(msg);
+        setRecoveryQuotaInfo(quota ?? null);
+        setRecoveryLoading(false);
+      },
+      RECOVERY_PROMPT_VERSION
+    );
+  };
+
   if (!progressReady || !analyticsReady) {
     return <MacpLoader />;
   }
@@ -2629,6 +2675,60 @@ const frogDesc =
                 </div>
               </div>
             </div>
+
+            {/* Recovery brief — shown only when off track and user requests it */}
+            {(analytics.weekCompletion < 60 || analytics.streak === 0 || !frogDone) && (
+              <div className="card fu fu5" style={{ borderColor: "rgba(58,124,191,0.3)", background: "rgba(58,124,191,0.04)" }}>
+                <div className="card-hd">
+                  <div className="card-hd-l">
+                    <span className="card-icon">↺</span>
+                    <span className="card-title">Recovery Brief</span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  {!recoveryText && !recoveryLoading && !recoveryErr && (
+                    <>
+                      <p style={{ fontSize: ".84rem", color: "var(--text-mid)", marginBottom: 12, lineHeight: 1.6 }}>
+                        This week looks a little off pace. Get a short, actionable recovery brief to recalibrate.
+                      </p>
+                      <button className="btn btn-ghost" style={{ fontSize: ".82rem" }} onClick={generateRecoveryBrief}>
+                        ↺ Get recovery brief
+                      </button>
+                    </>
+                  )}
+                  {recoveryLoading && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text-mid)", fontSize: ".84rem" }}>
+                      <div className="spinner" />
+                      Analyzing your week…
+                    </div>
+                  )}
+                  {recoveryText && !recoveryErr && (
+                    <div style={{ fontSize: ".84rem", lineHeight: 1.75, color: "var(--text-mid)", whiteSpace: "pre-wrap" }}>
+                      {recoveryText.split("\n").map((line, i) => {
+                        const isHeader = /^[A-Z][A-Z &\/\-']+$/.test(line.trim()) && line.trim().length > 3;
+                        return isHeader
+                          ? <div key={i} style={{ fontFamily: "var(--font-mono)", fontSize: ".65rem", letterSpacing: ".12em", color: "var(--sky)", marginTop: 14, marginBottom: 2 }}>{line}</div>
+                          : <span key={i}>{line}{"\n"}</span>;
+                      })}
+                    </div>
+                  )}
+                  {recoveryErr && (
+                    <div style={{ fontSize: ".82rem", color: "var(--red)" }}>
+                      {recoveryQuotaInfo ? (
+                        <>
+                          <div style={{ fontWeight: 600, marginBottom: 4 }}>Daily AI limit reached</div>
+                          <div>You've used {recoveryQuotaInfo.used} of {recoveryQuotaInfo.limit} AI generations today.</div>
+                          <div style={{ marginTop: 4, opacity: 0.75 }}>Try again after the daily reset.</div>
+                          {!isPremium && <UpgradePlaceholder />}
+                        </>
+                      ) : (
+                        <div>Could not generate recovery brief. Check your connection and try again.</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right column */}
