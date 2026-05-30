@@ -68,6 +68,7 @@ async function logUsage(
     total_tokens?: number | null;
     request_id?: string | null;
     error_code?: string | null;
+    prompt_version?: string | null;
   }
 ) {
   if (!supabase) return;
@@ -180,6 +181,7 @@ export default async function handler(req: any, res: any) {
 
   const supabase = getServiceClient();
   let eventType: EventType = "plan_generation";
+  let promptVersion: string | null = null;
 
   try {
     const body =
@@ -192,6 +194,12 @@ export default async function handler(req: any, res: any) {
     // Normalize the caller-supplied event type; default invalid/missing values.
     if (ALLOWED_EVENT_TYPES.includes(body.event_type)) {
       eventType = body.event_type;
+    }
+
+    // Optional prompt template version (audit metadata only; never used for
+    // logic). Accept a string, otherwise leave null.
+    if (typeof body.prompt_version === "string") {
+      promptVersion = body.prompt_version;
     }
 
     if (!prompt || typeof prompt !== "string") {
@@ -231,6 +239,7 @@ export default async function handler(req: any, res: any) {
             clerk_user_id: clerkUserId,
             event_type: eventType,
             status: "blocked_quota",
+            prompt_version: promptVersion,
           });
           return res.status(429).json({
             error: `You've reached today's limit of ${limit} AI generations. Please try again tomorrow.`,
@@ -283,6 +292,7 @@ export default async function handler(req: any, res: any) {
         model: OPENAI_MODEL,
         prompt_chars: prompt.length,
         error_code: `openai_${openaiResponse.status}`,
+        prompt_version: promptVersion,
       });
       return res.status(502).json({
         error: "Plan generation failed",
@@ -308,6 +318,7 @@ export default async function handler(req: any, res: any) {
         model: OPENAI_MODEL,
         prompt_chars: prompt.length,
         error_code: "empty_response",
+        prompt_version: promptVersion,
       });
       return res.status(502).json({
         error: "Plan generation failed",
@@ -326,6 +337,7 @@ export default async function handler(req: any, res: any) {
       output_tokens: usage.output_tokens ?? usage.completion_tokens ?? null,
       total_tokens: usage.total_tokens ?? null,
       request_id: typeof data.id === "string" ? data.id : null,
+      prompt_version: promptVersion,
     });
 
     return res.status(200).json({
@@ -342,6 +354,7 @@ export default async function handler(req: any, res: any) {
       event_type: eventType,
       status: "error",
       error_code: "server_error",
+      prompt_version: promptVersion,
     });
     return res.status(500).json({
       error: "Server error",

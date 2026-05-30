@@ -75,6 +75,9 @@ export async function saveCurrentPlan(
   const planReason =
     typeof plan.plan_reason === "string" ? plan.plan_reason : "initial";
 
+  const promptVersion =
+    typeof plan.prompt_version === "string" ? plan.prompt_version : null;
+
   const profileSnapshot =
     plan.profileSnapshot &&
     typeof plan.profileSnapshot === "object" &&
@@ -105,6 +108,7 @@ export async function saveCurrentPlan(
           plan_version: planVersion,
           plan_reason: planReason,
           plan_generated_at: planGeneratedAt,
+          prompt_version: promptVersion,
           plan,
           profile_snapshot: profileSnapshot,
         },
@@ -237,6 +241,7 @@ export async function saveWeeklyReview(
     plan_version?: number | null;
     plan_reason?: string | null;
     plan_generated_at?: string | null;
+    prompt_version?: string | null;
     plan_snapshot?: Record<string, unknown> | null;
     completion_pct?: number;
     saved_days?: number;
@@ -255,6 +260,7 @@ export async function saveWeeklyReview(
         plan_version: payload.plan_version ?? null,
         plan_reason: payload.plan_reason ?? null,
         plan_generated_at: payload.plan_generated_at ?? null,
+        prompt_version: payload.prompt_version ?? null,
         plan_snapshot: payload.plan_snapshot ?? {},
         completion_pct: payload.completion_pct ?? 0,
         saved_days: payload.saved_days ?? 0,

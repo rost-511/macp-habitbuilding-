@@ -3,7 +3,7 @@ import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from
 import { useSupabase } from "./lib/useSupabase";
 import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
-import { buildPlanPrompt, buildReviewPrompt } from "./lib/prompts";
+import { buildPlanPrompt, buildReviewPrompt, PLAN_PROMPT_VERSION, REVIEW_PROMPT_VERSION } from "./lib/prompts";
 import {
   getMyProfile,
   completeOnboarding,
@@ -1339,7 +1339,7 @@ interface QuotaInfo {
   resetsAt: string;
 }
 
-async function streamClaude(prompt, eventType, getToken, onChunk, onDone, onError: (message: string, quotaInfo?: QuotaInfo) => void) {
+async function streamClaude(prompt, eventType, getToken, onChunk, onDone, onError: (message: string, quotaInfo?: QuotaInfo) => void, promptVersion?: string) {
   try {
     let token = null;
     try {
@@ -1354,7 +1354,7 @@ async function streamClaude(prompt, eventType, getToken, onChunk, onDone, onErro
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ prompt, event_type: eventType }),
+      body: JSON.stringify({ prompt, event_type: eventType, prompt_version: promptVersion ?? null }),
     });
 
     if (!res.ok) {
@@ -1893,6 +1893,7 @@ const started = useRef(false);
                 plan_generated_at: generatedAt,
                 plan_version: nextPlanVersion,
                 plan_reason: planReason,
+                prompt_version: PLAN_PROMPT_VERSION,
                 previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
             profileSnapshot: profile,
           };
@@ -1903,6 +1904,7 @@ const started = useRef(false);
 plan_generated_at: generatedAt,
 plan_version: nextPlanVersion,
 plan_reason: planReason,
+prompt_version: PLAN_PROMPT_VERSION,
 previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
             profileSnapshot: profile,
           };
@@ -1927,7 +1929,8 @@ previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
           setSaving(false);
         }
       },
-      (msg, quota) => { setErr(msg); setQuotaInfo(quota ?? null); }
+      (msg, quota) => { setErr(msg); setQuotaInfo(quota ?? null); },
+      PLAN_PROMPT_VERSION
     );
     };
 
@@ -3143,7 +3146,8 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
       (errorMessage, quotaInfo) => {
         generationError = errorMessage;
         generationQuotaInfo = quotaInfo;
-      }
+      },
+      REVIEW_PROMPT_VERSION
     );
 
     if (generationError) {
@@ -3183,6 +3187,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
         plan_version: Number(reviewPlanVersion) || 1,
         plan_reason: reviewPlanReason,
         plan_generated_at: reviewPlanGeneratedAt,
+        prompt_version: REVIEW_PROMPT_VERSION,
         plan_snapshot: reviewPlan,
         completion_pct: simsCompletion,
         saved_days: reviewSavedDays,
