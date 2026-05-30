@@ -2521,10 +2521,9 @@ const frogDesc =
                   <button
                     className={`frog-done-btn ${frogDone?"done":""}`}
                     onClick={() => {
-                      if (!frogDone) {
-                        setFrogDone(true);
-                        persistProgress({ frog_done: true });
-                      }
+                      const next = !frogDone;
+                      setFrogDone(next);
+                      persistProgress({ frog_done: next });
                     }}
                   >{frogDone?"✓ Frog eaten!":"Mark Complete"}</button>
                   {!frogDone && (
