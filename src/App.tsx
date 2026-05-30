@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from "@clerk/clerk-react";
 import { useSupabase } from "./lib/useSupabase";
+import { useEntitlement } from "./lib/entitlements";
+import { UpgradePlaceholder } from "./components/PremiumGate";
 import {
   getMyProfile,
   completeOnboarding,
@@ -1894,7 +1896,7 @@ function Wizard({ onComplete, initialProfile = null }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    GENERATING SCREEN
 ───────────────────────────────────────────────────────────────────────────── */
-function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan, userId }) {
+function Generating({ profile, onReady, supabase, onPlanGenerated, existingPlan, userId, isPremium = false }) {
   const { getToken } = useAuth();
   const [text, setText] = useState("");
   const [done, setDone] = useState(false);
@@ -2083,7 +2085,7 @@ const previewSummary = String(preview?.aiPlanText || "")
         <div style={{ fontWeight: 600, marginBottom: 4 }}>Daily AI limit reached</div>
         <div>You've used {quotaInfo.used} of {quotaInfo.limit} AI generations today.</div>
         <div style={{ marginTop: 4, opacity: 0.75 }}>Try again after the daily reset.</div>
-        {/* TODO: upgrade CTA */}
+        {!isPremium && <UpgradePlaceholder />}
       </div>
     ) : (
       <div style={{ color: "var(--red)", fontSize: ".88rem" }}>
@@ -3108,7 +3110,7 @@ function CalendarPage({ supabase, userId }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
-function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReviewSaved = null }) {
+function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReviewSaved = null, isPremium = false }) {
   const { getToken } = useAuth();
   const [scores, setScores] = useState({ consistency:0, energy:0, focus:0 });
   const [notes, setNotes] = useState("");
@@ -3118,6 +3120,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
   const [done, setDone] = useState(false);
   const [reviewSaveStatus, setReviewSaveStatus] = useState("");
   const [saveError, setSaveError] = useState(false);
+  const [reviewQuotaHit, setReviewQuotaHit] = useState(false);
   const runningRef = useRef(false);
   const [reviewStatsReady, setReviewStatsReady] = useState(false);
   const [reviewWeekCompletion, setReviewWeekCompletion] = useState(0);
@@ -3233,6 +3236,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
     setDone(false);
     setReviewSaveStatus("");
     setSaveError(false);
+    setReviewQuotaHit(false);
 
     let generatedInsight = "";
     let generationError = "";
@@ -3256,7 +3260,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
     if (generationError) {
       setLoading(false);
       // Show the API's message for quota blocks; generic copy for other errors.
-      // TODO: upgrade CTA for quota_exceeded
+      setReviewQuotaHit(!!generationQuotaInfo);
       setReviewSaveStatus(
         generationQuotaInfo
           ? generationError
@@ -3411,6 +3415,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
             {reviewSaveStatus}
           </div>
         )}
+        {reviewQuotaHit && !isPremium && <UpgradePlaceholder />}
       </div>
 
       {(insight||loading) && (
@@ -4093,6 +4098,7 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
 
   const supabase = useSupabase();
   const { isLoaded, isSignedIn, userId } = useAuth();
+  const { isPremium } = useEntitlement();
 
   useEffect(() => {
     async function checkSavedUser() {
@@ -4293,6 +4299,7 @@ const NAV = showAppNav
     onPlanGenerated={handlePlanGenerated}
     existingPlan={plan}
     userId={userId}
+    isPremium={isPremium}
   />
 )}
           {profile && ["dashboard", "calendar", "review", "settings"].includes(screen) && (
@@ -4322,6 +4329,7 @@ const NAV = showAppNav
   userId={userId}
   screen={screen}
   onReviewSaved={handleReviewSaved}
+  isPremium={isPremium}
 />
     </div>
 
