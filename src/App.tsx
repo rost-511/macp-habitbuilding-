@@ -2212,10 +2212,13 @@ const [celebrate, setCelebrate] = useState(false);
   const [analyticsReady, setAnalyticsReady] = useState(false);
   const [analytics, setAnalytics] = useState({
     weekCompletion: 0,
+    weekCompletionLogged: 0,
+    savedThisWeek: 0,
     streak: 0,
     bestPct: 0,
     savedDays: 0,
     weekPcts: [0, 0, 0, 0, 0, 0, 0],
+    frogWeek: 0,
   });
   
   const dayPct = (row: any) => {
@@ -2246,52 +2249,83 @@ const [celebrate, setCelebrate] = useState(false);
         const month = now.getMonth() + 1;
   
         const rows = await getProgressMonth(supabase, userId, year, month);
-  
+
         const byDate: Record<string, any> = {};
         rows.forEach((row: any) => {
           byDate[row.progress_date] = row;
         });
-  
+
         const today = new Date();
         const todayKey = today.toISOString().slice(0, 10);
-  
+
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - ((today.getDay() + 6) % 7));
-  
+
+        // Fetch previous month's rows if the current week spans a month boundary,
+        // so streak and week completion don't reset incorrectly on day 1–6 of a month.
+        const weekStartsInPriorMonth =
+          weekStart.getFullYear() !== today.getFullYear() ||
+          weekStart.getMonth() !== today.getMonth();
+        if (weekStartsInPriorMonth) {
+          const priorYear = weekStart.getFullYear();
+          const priorMonth = weekStart.getMonth() + 1;
+          const priorRows = await getProgressMonth(supabase, userId, priorYear, priorMonth);
+          priorRows.forEach((row: any) => {
+            byDate[row.progress_date] = row;
+          });
+        }
+
         const weekDays = Array.from({ length: 7 }).map((_, i) => {
           const d = new Date(weekStart);
           d.setDate(weekStart.getDate() + i);
           return d.toISOString().slice(0, 10);
         });
-  
+
         const weekPcts = weekDays.map((date) => dayPct(byDate[date]));
+
+        // Week completion: average only days that have been logged, not future/unlogged days.
+        const loggedWeekPcts = weekPcts.filter((_, i) => Boolean(byDate[weekDays[i]]));
+        const savedThisWeek = loggedWeekPcts.length;
+        const weekCompletionLogged = savedThisWeek > 0
+          ? Math.round(loggedWeekPcts.reduce((sum, n) => sum + n, 0) / savedThisWeek)
+          : 0;
+        // Keep the old 7-day average for backwards-compat fields that may use it.
         const weekCompletion = Math.round(
           weekPcts.reduce((sum, n) => sum + n, 0) / weekPcts.length
         );
-  
+
+        // Frog/keystone completion rate for the current week.
+        const frogWeek = weekDays.reduce((count, date) => {
+          const row = byDate[date];
+          return count + (row && row.frog_done === true ? 1 : 0);
+        }, 0);
+
         let streak = 0;
         const cursor = new Date(today);
-  
+
         while (true) {
           const key = cursor.toISOString().slice(0, 10);
           const pct = dayPct(byDate[key]);
-  
+
           if (pct <= 0) break;
-  
+
           streak += 1;
           cursor.setDate(cursor.getDate() - 1);
         }
-  
+
         const bestPct = rows.length
           ? Math.max(...rows.map((row: any) => dayPct(row)))
           : 0;
-  
+
           setAnalytics({
             weekCompletion,
+            weekCompletionLogged,
+            savedThisWeek,
             streak,
             bestPct,
             savedDays: rows.length,
             weekPcts,
+            frogWeek,
           });
         } catch (error) {
           console.error("Failed to load dashboard analytics:", error);
@@ -2353,7 +2387,7 @@ const [celebrate, setCelebrate] = useState(false);
     ? analytics.weekPcts
     : [0, 0, 0, 0, 0, 0, 0];
 
-const streak = weekDots.map((pct) => pct > 0);
+const weekDotStates = weekDots.map((pct) => pct > 0);
 
 const activePlan = (plan || {}) as any;
 const currentPlanVersion = Number(activePlan.plan_version || activePlan.planVersion || 1);
@@ -2526,25 +2560,23 @@ const frogDesc =
           </div>
           <div className="stat">
             <div className="stat-lbl">Current Week</div>
-            <div className="stat-val">{analytics.weekCompletion}<span className="stat-unit">%</span></div>
-<div className="stat-note pos">Weekly average</div>
+            <div className="stat-val">{analytics.weekCompletionLogged}<span className="stat-unit">%</span></div>
+            <div className="stat-note pos">{analytics.savedThisWeek > 0 ? `${analytics.savedThisWeek}d logged` : "No data yet"}</div>
           </div>
           <div className="stat">
             <div className="stat-lbl">Streak</div>
             <div className="stat-val">{analytics.streak}<span className="stat-unit">days</span></div>
-<div className={`stat-note ${analytics.streak > 0 ? "pos" : ""}`}>
-  {analytics.streak > 0 ? "Keep it alive" : "Start today"}
-</div>
+            <div className={`stat-note ${analytics.streak > 0 ? "pos" : ""}`}>
+              {analytics.streak > 0 ? "Keep it alive" : "Start today"}
+            </div>
           </div>
           <div className="stat">
-  <div className="stat-lbl">Personal Best</div>
-  <div className="stat-val">
-    {analytics.bestPct}<span className="stat-unit">%</span>
-  </div>
-  <div className="stat-note pos">
-    {analytics.savedDays} saved days this month
-  </div>
-</div>
+            <div className="stat-lbl">Frog This Week</div>
+            <div className="stat-val">{analytics.frogWeek}<span className="stat-unit">/{analytics.savedThisWeek}</span></div>
+            <div className={`stat-note ${analytics.frogWeek > 0 ? "pos" : ""}`}>
+              {analytics.frogWeek > 0 ? "Keystone hits" : "None yet"}
+            </div>
+          </div>
         </div>
 
         {/* Main grid */}
@@ -2666,8 +2698,8 @@ const frogDesc =
                 <div className="streak-grid">
                   {DAY_ABBRS.map((d,i)=>(
                     <div key={d} className="sday">
-                      <div className={`sday-dot ${i===6?"today":streak[i]?"hit":"missed"}`}>
-                        {streak[i]?"✓":i===6?"→":""}
+                      <div className={`sday-dot ${i===6?"today":weekDotStates[i]?"hit":"missed"}`}>
+                        {weekDotStates[i]?"✓":i===6?"→":""}
                       </div>
                       <div className="sday-lbl">{d}</div>
                     </div>
