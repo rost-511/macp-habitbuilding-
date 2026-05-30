@@ -3060,6 +3060,7 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
   const [reviewStatsReady, setReviewStatsReady] = useState(false);
   const [reviewWeekCompletion, setReviewWeekCompletion] = useState(0);
   const [reviewSavedDays, setReviewSavedDays] = useState(0);
+  const [reviewSignals, setReviewSignals] = useState<any>(null);
   const tier = tierFor(profile.week||1);
   const reviewPlan = (plan || {}) as any;
   const reviewDashboard = reviewPlan.dashboard || {};
@@ -3145,12 +3146,57 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
           weekPcts.reduce((sum, pct) => sum + pct, 0) / weekPcts.length
         );
 
+        // Compact behavioral signals for the adaptive review. Derived only from
+        // rows already fetched above — no additional DB reads.
+        const dayLabels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+        const dayPattern = weekDays
+          .map((date, i) => {
+            const row = byDate[date];
+            return row ? `${dayLabels[i]} ${reviewDayPct(row)}%` : `${dayLabels[i]} —`;
+          })
+          .join(", ");
+
+        const missTally: Record<string, { missed: number; total: number }> = {};
+        let frogLogged = 0;
+        let frogDone = 0;
+        weekDays.forEach((date) => {
+          const row = byDate[date];
+          if (!row) return;
+          if (typeof row.frog_done === "boolean") {
+            frogLogged += 1;
+            if (row.frog_done) frogDone += 1;
+          }
+          const dayHabits = Array.isArray(row.habits_snapshot) ? row.habits_snapshot : [];
+          const dayChecked =
+            row.checked && typeof row.checked === "object" ? row.checked : {};
+          dayHabits.forEach((h: any) => {
+            const name = typeof h?.name === "string" ? h.name : null;
+            if (!name) return;
+            const entry = missTally[name] || { missed: 0, total: 0 };
+            entry.total += 1;
+            if (!dayChecked[h?.id]) entry.missed += 1;
+            missTally[name] = entry;
+          });
+        });
+
+        const mostMissedHabits = Object.entries(missTally)
+          .filter(([, v]) => v.missed > 0)
+          .sort((a, b) => b[1].missed - a[1].missed)
+          .slice(0, 3)
+          .map(([name, v]) => `${name} (missed ${v.missed} of ${v.total})`)
+          .join("; ");
+
+        const frogCompletionRate =
+          frogLogged > 0 ? `${frogDone}/${frogLogged} logged days` : "";
+
         setReviewSavedDays(savedDays);
         setReviewWeekCompletion(completion);
+        setReviewSignals({ dayPattern, mostMissedHabits, frogCompletionRate });
       } catch (error) {
         console.error("Failed to load weekly review progress:", error);
         setReviewSavedDays(0);
         setReviewWeekCompletion(0);
+        setReviewSignals(null);
       } finally {
         setReviewStatsReady(true);
       }
@@ -3178,7 +3224,21 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
     let generationQuotaInfo: QuotaInfo | undefined;
 
     await streamClaude(
-      buildReviewPrompt(profile, scores, notes, simsCompletion, plan, tierFor(profile.week || 1).label),
+      buildReviewPrompt(
+        profile,
+        scores,
+        notes,
+        simsCompletion,
+        plan,
+        tierFor(profile.week || 1).label,
+        {
+          savedDays: reviewSavedDays,
+          dayPattern: reviewSignals?.dayPattern || "",
+          mostMissedHabits: reviewSignals?.mostMissedHabits || "",
+          frogCompletionRate: reviewSignals?.frogCompletionRate || "",
+          planMode: normalizePlanMode((plan as any)?.plan_mode || profile.plan_mode),
+        }
+      ),
       "weekly_review",
       getToken,
       (chunk) => {

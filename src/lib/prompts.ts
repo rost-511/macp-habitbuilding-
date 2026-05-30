@@ -6,7 +6,7 @@
 import { buildModeBlock, type PlanMode } from "./planModes";
 
 export const PLAN_PROMPT_VERSION = "plan-v2.1";
-export const REVIEW_PROMPT_VERSION = "review-v1";
+export const REVIEW_PROMPT_VERSION = "review-v2";
 
 export function buildPlanPrompt(
   profile: any,
@@ -108,13 +108,22 @@ Rules:
 - aiPlanText must be a plain string (no JSON inside it)`;
 }
 
+export interface ReviewSignals {
+  savedDays?: number;
+  dayPattern?: string;
+  mostMissedHabits?: string;
+  frogCompletionRate?: string;
+  planMode?: string;
+}
+
 export function buildReviewPrompt(
   profile: any,
   scores: any,
   notes: string,
   completionPct: number,
   plan: any = null,
-  tierLabel: string = ""
+  tierLabel: string = "",
+  signals: ReviewSignals = {}
 ) {
   const reviewPlan = (plan || {}) as any;
   const reviewDashboard = reviewPlan.dashboard || {};
@@ -122,35 +131,57 @@ export function buildReviewPrompt(
   const reviewPlanReason = reviewPlan.plan_reason || (reviewPlanVersion > 1 ? "regenerated" : "initial plan");
   const reviewWeeklyFocus = reviewDashboard.weeklyReviewFocus || "No weekly focus saved";
 
-  return `You are MACP weekly coach. Generate a personalized weekly review.
+  const savedDaysLine =
+    typeof signals.savedDays === "number" ? `${signals.savedDays} of 7` : "unknown";
+  const dayPatternLine = signals.dayPattern || "not available";
+  const missedLine = signals.mostMissedHabits || "none detected";
+  const frogLine = signals.frogCompletionRate || "not tracked";
+  const planMode = signals.planMode || "general";
+
+  return `You are MACP weekly coach. Generate a sharp, personalized weekly review grounded in the data below.
 
 USER: ${profile.name || "User"} | ${tierLabel} | Week ${profile.week || 1}
+Plan mode: ${planMode}
 Active plan: Plan v${reviewPlanVersion} (${reviewPlanReason})
 Plan weekly focus: ${reviewWeeklyFocus}
-Habit completion this week: ${completionPct}%
-Scores — Consistency: ${scores.consistency}/5, Energy mgmt: ${scores.energy}/5, Deep focus: ${scores.focus}/5
-User notes: "${notes || "None provided"}"
-Goals: ${(profile.goals || []).join(", ")}
 
-Write using EXACT section headers:
+WEEK SIGNALS:
+- Habit completion (week average): ${completionPct}%
+- Days logged: ${savedDaysLine}
+- Daily pattern: ${dayPatternLine}
+- Most-missed habits: ${missedLine}
+- Frog/keystone completion: ${frogLine}
+- Self-scores — Consistency: ${scores.consistency}/5, Energy mgmt: ${scores.energy}/5, Deep focus: ${scores.focus}/5
+- User notes: "${notes || "None provided"}"
+- Goals: ${(profile.goals || []).join(", ")}
+
+REVIEW PRINCIPLES:
+- Read completion % together with days logged — unlogged days are missing data, NOT proof of failure. Never shame a partial week.
+- When a most-missed habit is named, call it out by name and build the advice around it.
+- Mention frog/keystone completion when it is available.
+- Cross-check the self-scores against actual completion; flag the gap honestly if one exists.
+- Make the advice specific to the user's plan mode (${planMode}).
+- Be concrete and direct. No motivational fluff, no therapy-speak. Use second person.
+
+Write using EXACT section headers (keep them UPPERCASE, each on its own line):
 
 WEEK GRADE
-Give a letter grade (A/B/C/D) and a single honest sentence why.
+A letter grade (A/B/C/D) and one honest, data-grounded sentence.
 
 WINS THIS WEEK
-2 specific things they likely did right. Connect to their actual goals.
+1–2 specific wins tied to habits they actually completed.
 
 GROWTH EDGE
-The one bottleneck holding them back. Be direct, not harsh.
+The single biggest bottleneck — name the most-missed habit or pattern. Direct, not harsh.
 
 TIER STATUS
-Should they: Stay in ${tierLabel}, advance a tier, or step back? Explain in one sentence.
+Stay in ${tierLabel}, advance a tier, or step back? One sentence, justified by completion and days logged.
 
 NEXT WEEK'S KEYSTONE
-The single most important habit to cement next week. Why that one?
+ONE cue-anchored adjustment for next week ("after [existing routine], I will [habit]"). Say why that one.
 
 RECOVERY PROTOCOL
-If they missed days: a specific 3-step rebound plan. No guilt — only action.
+If days were missed: a 2-minute minimum restart and a never-miss-twice rule. No guilt — only action.
 
-Max 220 words. Be honest, warm, energizing — like a great coach, not a therapist.`;
+Keep the whole review around 200–260 words.`;
 }
