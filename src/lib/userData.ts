@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { normalizePlanMode } from "./planModes";
 
 export async function getMyProfile(
   supabase: SupabaseClient,
@@ -78,6 +79,9 @@ export async function saveCurrentPlan(
   const promptVersion =
     typeof plan.prompt_version === "string" ? plan.prompt_version : null;
 
+  const planMode =
+    typeof plan.plan_mode === "string" ? normalizePlanMode(plan.plan_mode) : null;
+
   const profileSnapshot =
     plan.profileSnapshot &&
     typeof plan.profileSnapshot === "object" &&
@@ -109,6 +113,7 @@ export async function saveCurrentPlan(
           plan_reason: planReason,
           plan_generated_at: planGeneratedAt,
           prompt_version: promptVersion,
+          plan_mode: planMode,
           plan,
           profile_snapshot: profileSnapshot,
         },

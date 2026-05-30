@@ -4,6 +4,7 @@ import { useSupabase } from "./lib/useSupabase";
 import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
 import { buildPlanPrompt, buildReviewPrompt, PLAN_PROMPT_VERSION, REVIEW_PROMPT_VERSION } from "./lib/prompts";
+import { PLAN_MODES, normalizePlanMode } from "./lib/planModes";
 import {
   getMyProfile,
   completeOnboarding,
@@ -1480,11 +1481,12 @@ function StarRating({ label, value, onChange }) {
    WIZARD
 ───────────────────────────────────────────────────────────────────────────── */
 const STEPS = [
-  { label:"Step 1 / 5", title:"Who are you?",               sub:"Build your identity profile." },
-  { label:"Step 2 / 5", title:"Your Schedule",              sub:"Tell me when you live your life." },
-  { label:"Step 3 / 5", title:"Goals & Ambition",           sub:"What are you building toward?" },
-  { label:"Step 4 / 5", title:"Energy & Constraints",       sub:"Honesty here shapes everything." },
-  { label:"Step 5 / 5", title:"Choose Habit Categories",    sub:"Where do you want to level up?" },
+  { label:"Step 1 / 6", title:"Choose Your Focus Mode", sub:"What should MACP optimize your system for?" },
+  { label:"Step 2 / 6", title:"Who are you?",               sub:"Build your identity profile." },
+  { label:"Step 3 / 6", title:"Your Schedule",              sub:"Tell me when you live your life." },
+  { label:"Step 4 / 6", title:"Goals & Ambition",           sub:"What are you building toward?" },
+  { label:"Step 5 / 6", title:"Energy & Constraints",       sub:"Honesty here shapes everything." },
+  { label:"Step 6 / 6", title:"Choose Habit Categories",    sub:"Where do you want to level up?" },
 ];
 
 function Wizard({ onComplete, initialProfile = null }) {
@@ -1508,6 +1510,7 @@ function Wizard({ onComplete, initialProfile = null }) {
       categories: [],
       customHabits: [],
       week: 1,
+      plan_mode: "general",
     };
   
     const initial = initialProfile || {};
@@ -1524,6 +1527,7 @@ function Wizard({ onComplete, initialProfile = null }) {
         : base.customHabits,
       energyLevel: Number(initial.energyLevel || base.energyLevel),
       week: Number(initial.week || base.week),
+      plan_mode: normalizePlanMode(initial.plan_mode || base.plan_mode),
     };
   });
   const up = (k, v) => {
@@ -1556,14 +1560,14 @@ function Wizard({ onComplete, initialProfile = null }) {
   };
 
   const errorsForStep = (stepIndex) => {
-    if (stepIndex === 0) {
+    if (stepIndex === 1) {
       const missing = [];
       if (!isMeaningfulText(P.name, 2)) missing.push("First name (at least 2 characters)");
       if (isBlank(P.situation)) missing.push("Current situation");
       return missing;
     }
 
-    if (stepIndex === 1) {
+    if (stepIndex === 2) {
       const missing = [];
       if (isBlank(P.wakeTime)) missing.push("Wake time");
       if (isBlank(P.workout)) missing.push("Workout preference");
@@ -1574,7 +1578,7 @@ function Wizard({ onComplete, initialProfile = null }) {
       return missing;
     }
 
-    if (stepIndex === 2) {
+    if (stepIndex === 3) {
       const missing = [];
       if (!P.goals.length) missing.push("Top goals (select at least one)");
       if (!isMeaningfulText(P.mainGoal, 10))
@@ -1582,7 +1586,7 @@ function Wizard({ onComplete, initialProfile = null }) {
       return missing;
     }
 
-    if (stepIndex === 3) {
+    if (stepIndex === 4) {
       const missing = [];
       if (!P.energyLevel) missing.push("Average daily energy");
       if (isBlank(P.freeHours)) missing.push("Free hours per day");
@@ -1591,7 +1595,7 @@ function Wizard({ onComplete, initialProfile = null }) {
       return missing;
     }
 
-    if (stepIndex === 4) {
+    if (stepIndex === 5) {
       const missing = [];
       if (!P.categories.length) missing.push("Focus areas (select at least one)");
       return missing;
@@ -1656,6 +1660,37 @@ function Wizard({ onComplete, initialProfile = null }) {
       {step===0 && (
         <div className="fgrp">
           <div className="field">
+            <label>What should MACP optimize your system for?</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
+              {PLAN_MODES.map((m) => {
+                const on = P.plan_mode === m.id;
+                return (
+                  <div
+                    key={m.id}
+                    onClick={() => up("plan_mode", m.id)}
+                    style={{
+                      cursor: "pointer",
+                      padding: "14px 16px",
+                      borderRadius: "var(--r2)",
+                      border: `1px solid ${on ? "rgba(212,146,42,0.7)" : "var(--border2)"}`,
+                      background: on ? "var(--amber-dim)" : "var(--surface2)",
+                      transition: "border-color .15s, background .15s",
+                    }}
+                  >
+                    <div style={{ fontSize: "1.15rem", marginBottom: 6 }}>{m.icon}</div>
+                    <div style={{ fontWeight: 600, fontSize: ".9rem", color: on ? "var(--amber)" : "var(--text)" }}>{m.label}</div>
+                    <div style={{ fontSize: ".74rem", color: "var(--text-mid)", lineHeight: 1.45, marginTop: 3 }}>{m.description}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step===1 && (
+        <div className="fgrp">
+          <div className="field">
             <label>First name</label>
             <input value={P.name} onChange={e=>up("name",e.target.value)} placeholder="e.g. Jordan"/>
           </div>
@@ -1670,7 +1705,7 @@ function Wizard({ onComplete, initialProfile = null }) {
         </div>
       )}
 
-      {step===1 && (
+      {step===2 && (
         <div className="fgrp">
           <div className="row2">
             <div className="field">
@@ -1702,7 +1737,7 @@ function Wizard({ onComplete, initialProfile = null }) {
         </div>
       )}
 
-      {step===2 && (
+      {step===3 && (
         <div className="fgrp">
           <div className="field">
             <label>Top goals (pick all that apply)</label>
@@ -1719,7 +1754,7 @@ function Wizard({ onComplete, initialProfile = null }) {
         </div>
       )}
 
-      {step===3 && (
+      {step===4 && (
         <div className="fgrp">
           <div className="field range-wrap">
             <label>Average daily energy (1 = exhausted, 10 = peak)</label>
@@ -1744,7 +1779,7 @@ function Wizard({ onComplete, initialProfile = null }) {
         </div>
       )}
 
-      {step===4 && (
+      {step===5 && (
         <div className="fgrp">
           <div className="field">
             <label>Focus areas (choose your habit categories)</label>
@@ -1852,7 +1887,7 @@ const started = useRef(false);
       }
 
       streamClaude(
-        buildPlanPrompt(profile, memoryContext, tierFor(profile.week || 1).label),
+        buildPlanPrompt(profile, memoryContext, tierFor(profile.week || 1).label, normalizePlanMode(profile.plan_mode)),
         "plan_generation",
       getToken,
       chunk => setText(t=>t+chunk),
@@ -1894,6 +1929,7 @@ const started = useRef(false);
                 plan_version: nextPlanVersion,
                 plan_reason: planReason,
                 prompt_version: PLAN_PROMPT_VERSION,
+                plan_mode: normalizePlanMode(profile.plan_mode),
                 previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
             profileSnapshot: profile,
           };
@@ -1905,6 +1941,7 @@ plan_generated_at: generatedAt,
 plan_version: nextPlanVersion,
 plan_reason: planReason,
 prompt_version: PLAN_PROMPT_VERSION,
+plan_mode: normalizePlanMode(profile.plan_mode),
 previous_plan_version: hasExistingPlan ? previousPlanVersion : null,
             profileSnapshot: profile,
           };

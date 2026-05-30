@@ -3,13 +3,16 @@
 // drift apart. prompt_version wiring (request body / usage logs / history) is
 // intentionally NOT done here yet — see Project 6 Task 3B.
 
-export const PLAN_PROMPT_VERSION = "plan-v2";
+import { buildModeBlock, type PlanMode } from "./planModes";
+
+export const PLAN_PROMPT_VERSION = "plan-v2.1";
 export const REVIEW_PROMPT_VERSION = "review-v1";
 
 export function buildPlanPrompt(
   profile: any,
   memoryContext: string | null = null,
-  tierLabel: string = ""
+  tierLabel: string = "",
+  planMode: PlanMode | string = "general"
 ) {
   const [wH, wM] = (profile.wakeTime || "06:00").split(":").map(Number);
   const t = (dh: number, dm = 0) => {
@@ -26,6 +29,8 @@ export function buildPlanPrompt(
       .map((h: any) => h?.name)
       .filter(Boolean)
       .join(", ") || "None";
+
+  const modeBlock = buildModeBlock(planMode);
 
   return `You are MACP — an elite habit-architecture AI. Design a behavior-science-backed daily system for this user and return ONLY a valid JSON object. No markdown, no code fences, no extra text — just the raw JSON.
 ${memoryBlock}
@@ -55,7 +60,7 @@ DESIGN PRINCIPLES (apply all):
 - Behavior design: every habit is specific, measurable, and cue-anchored via habit stacking ("after [existing routine], I will [habit]"). Give the smallest viable version.
 - Honor the user's constraints as hard limits — never prescribe a habit or time block that violates them.
 - Schedule around their real life: protect peak-energy time for the frog and work around their work, study, and workout hours above.
-
+${modeBlock}
 Return this exact JSON shape (all fields required):
 {
   "aiPlanText": "<2–3 short paragraphs: name the identity, the keystone habits, the energy/schedule logic, and the ONE thing to nail this week. Plain string, paragraphs separated by blank lines>",
