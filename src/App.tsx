@@ -2219,6 +2219,7 @@ const [celebrate, setCelebrate] = useState(false);
     savedDays: 0,
     weekPcts: [0, 0, 0, 0, 0, 0, 0],
     frogWeek: 0,
+    insights: [] as string[],
   });
   
   const dayPct = (row: any) => {
@@ -2317,6 +2318,72 @@ const [celebrate, setCelebrate] = useState(false);
           ? Math.max(...rows.map((row: any) => dayPct(row)))
           : 0;
 
+        // --- Deterministic progress insights (no AI, no schema change) ---
+        const insights: string[] = [];
+
+        // Best day this week (need ≥ 2 logged days)
+        if (savedThisWeek >= 2) {
+          const dayLabels = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+          let bestI = 0;
+          for (let i = 1; i < 7; i++) {
+            if (byDate[weekDays[i]] && weekPcts[i] > weekPcts[bestI]) bestI = i;
+          }
+          if (byDate[weekDays[bestI]] && weekPcts[bestI] > 0) {
+            insights.push(`Best day: ${dayLabels[bestI]} at ${weekPcts[bestI]}%.`);
+          }
+        }
+
+        // Habit tally (strongest + weakest) — need ≥ 3 logged days
+        if (savedThisWeek >= 3) {
+          const tally: Record<string, { name: string; done: number; total: number }> = {};
+          weekDays.forEach((date) => {
+            const row = byDate[date];
+            if (!row) return;
+            const hs: any[] = Array.isArray(row.habits_snapshot) ? row.habits_snapshot : [];
+            const ch: Record<string, boolean> = row.checked && typeof row.checked === "object" ? row.checked : {};
+            hs.forEach((h: any) => {
+              const id = h?.id;
+              const name = typeof h?.name === "string" ? h.name : null;
+              if (!id || !name) return;
+              if (!tally[id]) tally[id] = { name, done: 0, total: 0 };
+              tally[id].total += 1;
+              if (ch[id]) tally[id].done += 1;
+            });
+          });
+
+          const entries = Object.values(tally).filter((e) => e.total >= 3);
+          if (entries.length > 0) {
+            const strongest = entries.reduce((a, b) => (b.done / b.total > a.done / a.total ? b : a));
+            insights.push(`Strongest habit: ${strongest.name} (${strongest.done}/${strongest.total} days).`);
+
+            const weakest = entries
+              .filter((e) => e.total - e.done >= 2)
+              .reduce((a: any, b) => (a === null || (b.total - b.done) / b.total > (a.total - a.done) / a.total ? b : a), null as any);
+            if (weakest) {
+              const missed = weakest.total - weakest.done;
+              insights.push(`Needs attention: ${weakest.name} (missed ${missed} of ${weakest.total} logged days).`);
+            }
+          }
+        }
+
+        // Completion trend — need ≥ 4 logged days
+        if (savedThisWeek >= 4 && insights.length < 3) {
+          const loggedPairs = weekDays
+            .map((date, i) => ({ pct: weekPcts[i], logged: Boolean(byDate[date]) }))
+            .filter((x) => x.logged);
+          const mid = Math.floor(loggedPairs.length / 2);
+          const earlyAvg = loggedPairs.slice(0, mid).reduce((s, x) => s + x.pct, 0) / mid;
+          const lateAvg = loggedPairs.slice(mid).reduce((s, x) => s + x.pct, 0) / (loggedPairs.length - mid);
+          const diff = Math.round(lateAvg - earlyAvg);
+          if (Math.abs(diff) >= 10) {
+            insights.push(
+              diff > 0
+                ? "Trend: your completion improved as the week went on."
+                : "Trend: you started stronger — finish the week well."
+            );
+          }
+        }
+
           setAnalytics({
             weekCompletion,
             weekCompletionLogged,
@@ -2326,6 +2393,7 @@ const [celebrate, setCelebrate] = useState(false);
             savedDays: rows.length,
             weekPcts,
             frogWeek,
+            insights: insights.slice(0, 3),
           });
         } catch (error) {
           console.error("Failed to load dashboard analytics:", error);
@@ -2709,6 +2777,25 @@ const frogDesc =
                 </div>
               </div>
             </div>
+
+            {/* Progress insights — shown only when enough data exists (≥ 3 logged days) */}
+            {analytics.insights.length > 0 && (
+              <div className="card fu fu5" style={{ borderColor: "var(--border2)" }}>
+                <div className="card-hd">
+                  <div className="card-hd-l">
+                    <span className="card-icon">◎</span>
+                    <span className="card-title">This Week's Patterns</span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <ul style={{ margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 8 }}>
+                    {analytics.insights.map((insight, i) => (
+                      <li key={i} style={{ fontSize: ".82rem", color: "var(--text-mid)", lineHeight: 1.5 }}>{insight}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            )}
 
             {/* Recovery brief — shown only when off track and user requests it */}
             {(analytics.weekCompletion < 60 || analytics.streak === 0 || !frogDone) && (
