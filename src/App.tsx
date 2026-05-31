@@ -1265,6 +1265,49 @@ function tierFor(week) {
                   return { label:"Tier 3 · Optimized", color:"#2d9e5f", level:3 };
 }
 
+function pickSmartNudge(s: {
+  doneCount: number;
+  totalHabits: number;
+  todayPct: number;
+  frogDone: boolean;
+  streak: number;
+  energy: string | null;
+  nowMin: number;
+  insights: string[];
+}): { icon: string; text: string } | null {
+  if (s.energy === "low") return null;
+  if (s.totalHabits > 0 && s.doneCount === s.totalHabits && s.frogDone) return null;
+
+  if (s.doneCount === 0 && !s.frogDone)
+    return { icon: "→", text: "Start small — finish one habit to get momentum going." };
+
+  if (!s.frogDone && s.nowMin < 14 * 60)
+    return { icon: "🐸", text: "Eat the frog first. Your keystone task protects the whole day." };
+
+  if (!s.frogDone && s.nowMin >= 14 * 60)
+    return { icon: "🐸", text: "Your keystone task is still open — a good one to close before the day ends." };
+
+  if (s.todayPct > 0 && s.todayPct < 50)
+    return { icon: "↑", text: "Pick the easiest habit next and recover the day." };
+
+  if (s.streak >= 1 && s.todayPct < 100)
+    return { icon: "🔥", text: `You're on a ${s.streak}-day streak — one quick win keeps it alive.` };
+
+  const needsAttention = s.insights.find((ins) => ins.startsWith("Needs attention:"));
+  if (needsAttention) {
+    const match = needsAttention.match(/^Needs attention:\s*([^,(]+)/);
+    const habit = match ? match[1].trim() : "";
+    if (habit) return { icon: "◎", text: `Give ${habit} a little attention today.` };
+  }
+
+  const trendUp = s.insights.find(
+    (ins) => ins.toLowerCase().includes("improved") || ins.toLowerCase().includes("trending up")
+  );
+  if (trendUp) return { icon: "↑", text: "You're trending up this week — keep today simple." };
+
+  return null;
+}
+
 function makeHabits(profile, tierLevel) {
   const base = [
     { id:"w1", name:"Drink 2 L of water", tag:"health",   tier:1 },
@@ -2152,6 +2195,7 @@ const [celebrate, setCelebrate] = useState(false);
   const [recoveryLoading, setRecoveryLoading] = useState(false);
   const [recoveryErr, setRecoveryErr] = useState("");
   const [recoveryQuotaInfo, setRecoveryQuotaInfo] = useState<QuotaInfo | null>(null);
+  const [nudgeDismissed, setNudgeDismissed] = useState(false);
   const progressSnapshot = () => {
     const activePlan = (plan || {}) as any;
   
@@ -2450,6 +2494,16 @@ const [celebrate, setCelebrate] = useState(false);
   }
   const doneCount = Object.values(checked).filter(Boolean).length;
   const pct = habits.length ? Math.round((doneCount/habits.length)*100) : 0;
+  const smartNudge = nudgeDismissed ? null : pickSmartNudge({
+    doneCount,
+    totalHabits: habits.length,
+    todayPct: pct,
+    frogDone,
+    streak: analytics.streak,
+    energy,
+    nowMin,
+    insights: analytics.insights,
+  });
   const weekDots =
   analytics.weekPcts?.length === 7
     ? analytics.weekPcts
@@ -2647,6 +2701,49 @@ const frogDesc =
             </div>
           </div>
         </div>
+
+        {/* Smart Nudge strip */}
+        {smartNudge && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              marginBottom: 16,
+              padding: "10px 14px",
+              borderRadius: 10,
+              background: "rgba(212,146,42,0.06)",
+              borderLeft: "3px solid var(--amber)",
+              fontSize: ".83rem",
+              color: "var(--text-mid)",
+              lineHeight: 1.55,
+            }}
+          >
+            <span style={{ fontSize: "1rem", flexShrink: 0 }}>{smartNudge.icon}</span>
+            <span style={{ flex: 1 }}>{smartNudge.text}</span>
+            <button
+              aria-label="Dismiss smart nudge"
+              onClick={() => setNudgeDismissed(true)}
+              style={{
+                background: "none",
+                border: "none",
+                color: "var(--text-dim)",
+                cursor: "pointer",
+                fontSize: "1.1rem",
+                padding: "4px 8px",
+                marginLeft: "auto",
+                flexShrink: 0,
+                minWidth: 44,
+                minHeight: 44,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >×</button>
+          </div>
+        )}
 
         {/* Main grid */}
         <div className="dgrid">
