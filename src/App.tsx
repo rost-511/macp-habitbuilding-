@@ -575,11 +575,22 @@ body,#root{
   padding:14px 20px;border-bottom:1px solid var(--border);
   display:flex;align-items:center;gap:10px;
 }
-.rev-insight-body{padding:20px;font-size:.9rem;line-height:1.85;color:var(--text-mid);white-space:pre-wrap}
-.rev-insight-body .rh{
-  font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--amber);
-  margin:16px 0 6px;display:block;
-}
+.rev-insight-body{padding:12px 20px 20px;font-size:.9rem;line-height:1.85;color:var(--text-mid)}
+.rev-insight-body .rh{font-family:var(--font-display);font-size:1rem;font-weight:700;color:var(--amber);margin:16px 0 6px;display:block}
+.rev-section-block{padding:14px 0;border-bottom:1px solid var(--border)}
+.rev-section-block:last-child{border-bottom:none;padding-bottom:0}
+.rev-section-title{font-family:var(--font-mono);font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+.rev-section-body{font-size:.88rem;line-height:1.75;color:var(--text-mid);white-space:pre-wrap}
+.rev-section-keystone{background:var(--amber-glow);border-left:3px solid var(--amber);border-radius:0 8px 8px 0;padding:12px 14px;margin:12px 0}
+.rev-section-keystone .rev-section-title{color:var(--amber)}
+.rev-section-keystone .rev-section-body{color:var(--text);font-weight:500}
+.rev-section-growth{background:var(--sky-dim);border-left:3px solid var(--sky);border-radius:0 8px 8px 0;padding:12px 14px;margin:12px 0}
+.rev-section-growth .rev-section-title{color:var(--sky)}
+.rev-section-recovery{background:rgba(107,104,112,.06);border-left:3px solid rgba(107,104,112,.35);border-radius:0 8px 8px 0;padding:12px 14px;margin:12px 0}
+.rev-section-recovery .rev-section-title{color:var(--text-dim)}
+.rev-grade-chip{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:8px;background:rgba(212,146,42,.12);border:1px solid rgba(212,146,42,.3);font-family:var(--font-display);font-size:1.1rem;font-weight:700;color:var(--amber);flex-shrink:0}
+.rev-meta{font-family:var(--font-mono);font-size:.58rem;color:var(--text-dim);letter-spacing:.06em;margin-left:auto;white-space:nowrap}
+.rev-pre-hint{font-size:.78rem;color:var(--text-dim);margin-bottom:14px;line-height:1.55}
 
 /* settings / habits page */
 .set{max-width:680px;margin:0 auto;padding:48px 24px 100px}
@@ -1061,7 +1072,7 @@ body,#root{
   }
   
   .star-lbl{
-    font-size:.44rem !important;
+    font-size:.55rem !important;
     letter-spacing:.06em !important;
     margin-bottom:7px !important;
     white-space:nowrap;
@@ -3361,6 +3372,102 @@ function CalendarPage({ supabase, userId }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
+const REVIEW_SECTION_HEADERS: readonly string[] = [
+  "WEEK GRADE",
+  "WINS THIS WEEK",
+  "GROWTH EDGE",
+  "TIER STATUS",
+  "NEXT WEEK'S KEYSTONE",
+  "RECOVERY PROTOCOL",
+];
+
+function parseInsightSections(raw: string): { header: string; body: string }[] {
+  if (!raw) return [];
+  const lines = raw.split("\n");
+  const sections: { header: string; body: string }[] = [];
+  let current: { header: string; body: string } | null = null;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const isKnown = REVIEW_SECTION_HEADERS.includes(trimmed);
+    const isGeneric = /^[A-Z][A-Z &\/\-']+$/.test(trimmed) && trimmed.length > 3;
+    if (isKnown || isGeneric) {
+      if (current) sections.push(current);
+      current = { header: trimmed, body: "" };
+    } else if (current) {
+      current.body += line + "\n";
+    }
+  }
+  if (current) sections.push(current);
+  return sections.map((s) => ({ ...s, body: s.body.trim() }));
+}
+
+function renderInsightSections(raw: string) {
+  if (!raw) return null;
+  const sections = parseInsightSections(raw);
+  if (sections.length === 0) {
+    return (
+      <span style={{ fontSize: ".88rem", lineHeight: 1.75, color: "var(--text-mid)", whiteSpace: "pre-wrap" }}>
+        {raw}
+      </span>
+    );
+  }
+  return (
+    <>
+      {sections.map((s, i) => {
+        const isKeystone = s.header === "NEXT WEEK'S KEYSTONE";
+        const isGrowth = s.header === "GROWTH EDGE";
+        const isRecovery = s.header === "RECOVERY PROTOCOL";
+        const isGrade = s.header === "WEEK GRADE";
+        if (isRecovery && !s.body) return null;
+        if (isKeystone) {
+          return (
+            <div key={i} className="rev-section-keystone">
+              <div className="rev-section-title">{s.header}</div>
+              <div className="rev-section-body">{s.body}</div>
+            </div>
+          );
+        }
+        if (isGrowth) {
+          return (
+            <div key={i} className="rev-section-growth">
+              <div className="rev-section-title">{s.header}</div>
+              <div className="rev-section-body">{s.body}</div>
+            </div>
+          );
+        }
+        if (isRecovery) {
+          return (
+            <div key={i} className="rev-section-recovery">
+              <div className="rev-section-title">{s.header}</div>
+              <div className="rev-section-body">{s.body}</div>
+            </div>
+          );
+        }
+        if (isGrade) {
+          const gradeMatch = s.body.match(/^([A-D][+-]?)\b/);
+          const grade = gradeMatch ? gradeMatch[1] : null;
+          const rest = grade ? s.body.slice(grade.length).trim() : s.body;
+          return (
+            <div key={i} className="rev-section-block">
+              <div className="rev-section-title">{s.header}</div>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginTop: 4 }}>
+                {grade && <div className="rev-grade-chip">{grade}</div>}
+                <div className="rev-section-body">{rest}</div>
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div key={i} className="rev-section-block">
+            <div className="rev-section-title">{s.header}</div>
+            <div className="rev-section-body">{s.body}</div>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReviewSaved = null, isPremium = false }) {
   const { getToken } = useAuth();
   const [scores, setScores] = useState({ consistency:0, energy:0, focus:0 });
@@ -3703,6 +3810,11 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
       </div>
 
       <div style={{marginBottom:28}}>
+        {!insight && !loading && (
+          <p className="rev-pre-hint">
+            Your review will cover: Week Grade · Wins · Growth Edge · Next Keystone · Recovery Protocol
+          </p>
+        )}
         <button className="btn btn-amber" onClick={run} disabled={loading}>
           {saving
             ? "Saving insight…"
@@ -3739,9 +3851,14 @@ function WeeklyReview({ profile, plan = null, supabase, userId, screen, onReview
             <span style={{fontFamily:"var(--font-mono)",fontSize:".65rem",letterSpacing:".14em",textTransform:"uppercase",color:"var(--amber)"}}>
               MACP WEEKLY INSIGHT
             </span>
+            {!loading && (
+              <span className="rev-meta">
+                Week {profile.week || 1} · {reviewSavedDays}d logged · {reviewWeekCompletion}%
+              </span>
+            )}
           </div>
           <div className="rev-insight-body">
-            {renderInsight(insight)}
+            {renderInsightSections(insight)}
             {loading && <span className="gen-cursor"/>}
           </div>
         </div>
@@ -4261,7 +4378,7 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
                 {item.insight && (
                   <div className="wr-insight-block">
                     <div className="wr-insight-label">AI Insight</div>
-                    <div className="wr-insight-text">{item.insight}</div>
+                    <div className="wr-insight-text">{renderInsightSections(item.insight)}</div>
                   </div>
                 )}
               </div>
