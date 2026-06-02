@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { SignedIn, SignedOut, SignInButton, UserButton, useAuth, useClerk } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, UserButton, useAuth, useSignIn, useSignUp, useClerk, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
 import { useSupabase } from "./lib/useSupabase";
 import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
@@ -22,7 +22,7 @@ import {
    STYLES
 ───────────────────────────────────────────────────────────────────────────── */
 const STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap');
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -45,9 +45,9 @@ const STYLES = `
   --sky-dim:rgba(58,124,191,0.15);
   --r:8px;
   --r2:14px;
-  --font-display:'Cormorant Garamond',serif;
-  --font-body:'Outfit',sans-serif;
-  --font-mono:'JetBrains Mono',monospace;
+--font-display:'Playfair Display',serif;
+--font-body:'Hanken Grotesk',sans-serif;
+--font-mono:'JetBrains Mono',monospace;
   --shadow:0 4px 32px rgba(0,0,0,0.6);
   --shadow-sm:0 2px 12px rgba(0,0,0,0.4);
 }
@@ -65,6 +65,9 @@ body,#root{
   background:var(--bg);
   color:var(--text);
   font-family:var(--font-body);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  text-rendering:geometricPrecision;
 }
 
 /* scrollbar */
@@ -164,6 +167,721 @@ body,#root{
 }
 .land-cta:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(212,146,42,0.45),0 8px 24px rgba(0,0,0,0.5)}
 .land-cta:active{transform:translateY(0)}
+.land-cta:disabled{opacity:.7;cursor:wait;transform:none;box-shadow:0 0 24px rgba(212,146,42,0.22)}
+.land-cta-spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(7,8,10,0.35);border-top-color:#07080a;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:9px}
+
+/* ── AUTH SHELL ──────────────────────────────────────────────────────────────
+   Full MACP-branded auth experience. MACP owns every control (see
+   MacpAuthControls); Clerk's custom-flow hooks own the real auth/session/security.
+   Split on desktop, stacked + thumb-friendly on mobile. */
+.auth-screen{
+  position:relative;z-index:200;width:100%;
+  min-height:100vh;min-height:100dvh;        /* grow with content; document scrolls */
+  display:grid;grid-template-columns:minmax(0,42fr) minmax(0,58fr);  /* design: 600 / 840 of 1440 */
+  background:var(--bg);color:var(--text);overflow-x:clip;  /* clip, not hidden — keeps sticky preview pinned */
+  animation:fadeIn .4s ease both;
+}
+/* Left = three vertical zones: wordmark (top) · form (centered) · footer (bottom) */
+.auth-left{
+  position:relative;min-width:0;
+  display:flex;flex-direction:column;
+  padding:54px 72px 42px;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(224,164,59,0.045) 0%, transparent 34%),
+    linear-gradient(180deg,#0a0704 0%,#050302 100%);
+}
+.auth-logo{
+  align-self:flex-start;display:inline-flex;align-items:baseline;gap:10px;
+  font-family:var(--font-display);font-size:1.55rem;font-weight:700;letter-spacing:.03em;
+  color:var(--amber);background:none;border:none;cursor:pointer;padding:0;user-select:none;line-height:1;
+}
+.auth-logo span{
+  font-family:var(--font-mono);color:var(--text-dim);font-weight:400;
+  font-size:.6rem;letter-spacing:.42em;text-transform:lowercase;
+}
+.auth-center{margin:auto auto;width:100%;max-width:404px}   /* centers form between logo and footer */
+.auth-brand{display:flex;flex-direction:column;gap:13px;width:100%}
+.auth-eyebrow{
+  font-family:var(--font-mono);font-size:.62rem;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--amber);
+}
+.auth-headline{
+  font-family:var(--font-display);font-weight:700;line-height:1.08;letter-spacing:-.01em;
+  font-size:clamp(2.4rem,3.3vw,2.95rem);color:var(--text);
+}
+.auth-headline em{color:var(--amber);font-style:italic}
+.auth-sub{font-size:.98rem;line-height:1.55;color:var(--text-mid);font-weight:300;max-width:404px}
+.auth-controls{width:100%;margin-top:28px}
+.auth-foot{width:100%;margin-top:36px;display:flex;flex-direction:column;gap:16px;align-items:center}
+.auth-legal{font-size:.76rem;color:var(--text-dim);line-height:1.6;text-align:center;max-width:380px}
+.auth-legal u{text-decoration:underline;text-underline-offset:2px;cursor:default}
+.auth-foot-rule{width:100%;height:1px;background:var(--border)}
+.auth-switch{font-size:.88rem;color:var(--text-mid);text-align:center}
+.auth-switch button{
+  background:none;border:none;cursor:pointer;color:var(--amber);font-weight:700;
+  font-family:var(--font-body);font-size:.88rem;padding:0 0 0 4px;
+}
+.auth-switch button:hover{text-decoration:underline}
+
+/* ── CUSTOM MACP AUTH CONTROLS ────────────────────────────────────────────────
+   MACP fully owns this UI. Every control drives Clerk's REAL backend through its
+   custom-flow hooks (useSignIn / useSignUp / useClerk) — no embedded Clerk card. */
+.macp-auth{display:flex;flex-direction:column;gap:12px;width:100%}
+
+/* Provider buttons — dark + bordered so the eye lands on the amber CTA below */
+.macp-oauth{
+  display:flex;align-items:center;justify-content:center;gap:12px;width:100%;
+  min-height:54px;padding:0 18px;position:relative;
+  background:var(--surface2);color:var(--text);
+  border:1px solid var(--border2);border-radius:13px;
+  font-family:var(--font-body);font-size:1rem;font-weight:500;letter-spacing:.01em;
+  cursor:pointer;transition:border-color .18s,background-color .18s,transform .1s;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.03);
+  -webkit-tap-highlight-color:transparent;
+}
+.macp-oauth:hover{background:#1b1c1f;border-color:rgba(212,146,42,0.45)}
+.macp-oauth:active{transform:translateY(1px)}
+.macp-oauth:disabled{opacity:.55;cursor:wait}
+.macp-oauth svg{flex:none}
+.macp-oauth-badge{
+  position:absolute;right:14px;font-family:var(--font-mono);font-size:.55rem;letter-spacing:.16em;
+  color:var(--text-dim);border:1px solid var(--border2);border-radius:5px;padding:3px 6px;text-transform:uppercase;
+}
+
+/* Mono divider */
+.macp-divider{display:flex;align-items:center;gap:16px;margin:4px 0 2px;color:var(--text-dim)}
+.macp-divider::before,.macp-divider::after{content:"";flex:1;height:1px;background:var(--border)}
+.macp-divider span{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;white-space:nowrap}
+
+/* Fields — design uses soft sentence-case labels (not mono kickers) above each input */
+.macp-field{display:flex;flex-direction:column;gap:9px}
+.macp-label{font-family:var(--font-body);font-size:.84rem;font-weight:500;letter-spacing:.01em;color:var(--text-mid)}
+.macp-input{
+  width:100%;min-height:54px;padding:0 16px;
+  background:var(--surface);color:var(--text);
+  border:1px solid var(--border2);border-radius:13px;
+  font-family:var(--font-body);font-size:1rem;outline:none;
+  transition:border-color .18s,box-shadow .18s;
+}
+.macp-input::placeholder{color:var(--text-dim)}
+.macp-input:focus{border-color:rgba(212,146,42,0.6);box-shadow:0 0 0 3px rgba(212,146,42,0.14)}
+/* Keep inputs dark in every state — including browser autofill (no white flash) */
+.macp-input:-webkit-autofill,
+.macp-input:-webkit-autofill:hover,
+.macp-input:-webkit-autofill:focus,
+.macp-input:-webkit-autofill:active{
+  -webkit-text-fill-color:var(--text);caret-color:var(--text);
+  -webkit-box-shadow:0 0 0 1000px var(--surface) inset!important;
+  box-shadow:0 0 0 1000px var(--surface) inset!important;
+  transition:background-color 9999s ease-in-out 0s;
+}
+.macp-code{text-align:center;font-family:var(--font-mono);font-size:1.3rem;letter-spacing:.5em;padding-left:.5em}
+
+/* Segmented email-code (OTP) — real <input> sits transparent over six display cells */
+.macp-otp{position:relative}
+.macp-otp-input{
+  position:absolute;inset:0;width:100%;height:100%;z-index:2;
+  opacity:0;border:none;background:none;color:transparent;caret-color:transparent;cursor:text;
+  font-size:16px; /* keeps iOS from zooming on focus */
+}
+.macp-otp-cells{display:flex;gap:10px}
+.macp-otp-cell{
+  flex:1;height:58px;border-radius:12px;border:1px solid var(--border2);background:var(--surface);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-mono);font-size:1.45rem;font-weight:500;color:var(--text);
+  transition:border-color .15s,box-shadow .15s;
+}
+.macp-otp-cell.active{border-color:var(--amber);box-shadow:0 0 0 3px rgba(212,146,42,0.14)}
+.macp-otp-cell.err{border-color:var(--red);color:var(--red)}
+.macp-otp-caret{width:2px;height:26px;background:var(--amber);animation:macpBlink 1.1s steps(1) infinite}
+@keyframes macpBlink{0%,50%{opacity:1}50.01%,100%{opacity:0}}
+.macp-pw-wrap{position:relative}
+.macp-pw-wrap .macp-input{padding-right:46px}
+.macp-pw-toggle{
+  position:absolute;right:7px;top:50%;transform:translateY(-50%);
+  width:36px;height:36px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;color:var(--text-mid);cursor:pointer;border-radius:6px;transition:color .15s;
+}
+.macp-pw-toggle:hover{color:var(--text)}
+
+/* Amber CTA — the one filled element */
+.macp-cta{
+  width:100%;min-height:54px;margin-top:4px;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  background:var(--amber);color:#1a1408;border:none;border-radius:13px;
+  font-family:var(--font-body);font-size:1.02rem;font-weight:700;letter-spacing:.02em;
+  cursor:pointer;transition:transform .1s,box-shadow .18s,background-color .18s;
+  box-shadow:0 10px 26px -10px rgba(212,146,42,0.6);
+}
+.macp-cta:hover{background:#dc9c36;box-shadow:0 12px 30px -10px rgba(212,146,42,0.72)}
+.macp-cta:active{transform:translateY(1px)}
+.macp-cta:disabled{opacity:.65;cursor:not-allowed;box-shadow:0 0 18px rgba(212,146,42,0.18)}
+.macp-cta-spin{width:15px;height:15px;border:2px solid rgba(7,8,10,0.35);border-top-color:#07080a;border-radius:50%;animation:spin .7s linear infinite}
+
+/* Custom inline error (matches MACP error reference, never breaks layout) */
+.macp-auth-err{
+  display:flex;gap:9px;align-items:flex-start;
+  background:rgba(201,64,64,0.08);border:1px solid rgba(201,64,64,0.38);
+  border-radius:var(--r);padding:11px 13px;color:var(--text);font-size:.85rem;line-height:1.45;
+}
+.macp-auth-err svg{flex:none;color:var(--red);margin-top:1px}
+
+/* Verify (email-code) step */
+.macp-back{
+  align-self:flex-start;background:none;border:none;color:var(--text-mid);cursor:pointer;
+  font-family:var(--font-mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;padding:2px 0;
+}
+.macp-back:hover{color:var(--text)}
+.macp-otp-hint{font-size:.9rem;color:var(--text-mid);line-height:1.55}
+.macp-otp-hint b{color:var(--text);font-weight:600}
+.macp-resend{font-size:.82rem;color:var(--text-mid);text-align:center;margin-top:2px}
+.macp-auth-link{background:none;border:none;color:var(--amber);font-weight:600;cursor:pointer;font-family:var(--font-body);font-size:inherit;padding:0}
+.macp-auth-link:hover{text-decoration:underline}
+.macp-auth-link:disabled{opacity:.6;cursor:wait;text-decoration:none}
+
+/* Loading skeleton (while Clerk initializes) — no Clerk-button pop, no FOUC */
+.macp-skel{border-radius:var(--r);background:linear-gradient(90deg,var(--surface2) 25%,#1d1e22 50%,var(--surface2) 75%);background-size:200% 100%;animation:macpShimmer 1.4s ease-in-out infinite}
+@keyframes macpShimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Clerk's real bot-check mounts here when sign-up requires it (invisible until used) */
+.macp-auth #clerk-captcha{display:flex;justify-content:center;max-width:100%;overflow:hidden}
+.macp-auth #clerk-captcha:not(:empty){margin-top:6px}
+.macp-auth #clerk-captcha iframe,
+.macp-auth #clerk-captcha > *{max-width:100%}
+
+/* Right preview — exact Claude Design right panel */
+.auth-right{
+--amber:#e0a43b;
+--amber-line:rgba(224,164,59,0.38);
+--green:#4aa56b;
+--text-faint:rgba(240,236,227,0.42);
+--bg-raise:#0c0d10;
+--surface-1:#0d0f12;
+--surface-2:#121316;
+
+  position:relative;
+  flex:1 1 0;
+  min-width:0;
+  height:100vh;
+  height:100dvh;
+  max-height:100dvh;
+  overflow:hidden;
+  padding:64px 60px;
+  display:flex;
+  flex-direction:column;
+  justify-content:space-between;
+  border-left:1px solid var(--border);
+  background:linear-gradient(160deg,#0d0a07 0%,#050403 100%);
+}
+
+.auth-right::after{
+  content:"";
+  position:absolute;
+  top:-180px;
+  right:-120px;
+  width:640px;
+  height:640px;
+  border-radius:50%;
+  pointer-events:none;
+  background:radial-gradient(circle,rgba(224,164,59,0.22) 0%,rgba(224,164,59,0.08) 34%,rgba(224,164,59,0) 68%);
+  filter:blur(8px);
+}
+
+.auth-right::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  opacity:.5;
+  pointer-events:none;
+  background-image:radial-gradient(rgba(255,255,255,0.035) 1px,transparent 1px);
+  background-size:26px 26px;
+}
+
+.auth-right>*{
+  position:relative;
+  z-index:1;
+}
+
+.auth-pv-head{
+  position:relative;
+  max-width:440px;
+}
+
+.auth-pv-eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;
+  letter-spacing:3.5px;
+  text-transform:uppercase;
+  color:var(--amber);
+}
+
+.auth-pv-headline{
+  font-family:'Playfair Display',serif;
+  font-weight:600;
+  font-size:38px;
+  line-height:1.12;
+  color:var(--text);
+  margin:16px 0 0;
+  max-width:520px;
+  letter-spacing:-0.015em;
+}
+
+.auth-pv-headline em{
+  color:var(--amber);
+  font-style:italic;
+}
+
+.auth-pv-tilt{
+  position:relative;
+  display:flex;
+  justify-content:center;
+  margin:22px 0 28px;
+}
+
+.auth-pv{
+  width:560px;
+  max-width:100%;
+  border-radius:18px;
+  overflow:hidden;
+  background:var(--bg-raise);
+  border:1px solid var(--border);
+  box-shadow:0 40px 80px -30px rgba(0,0,0,0.8),0 0 0 1px rgba(255,255,255,0.02);
+  transform:perspective(1600px) rotateY(-7deg) rotateX(2deg) scale(1.10);
+  transform-origin:center;
+}
+
+.apv-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 18px;
+  border-bottom:1px solid var(--border);
+}
+
+.apv-logo{
+  display:flex;
+  align-items:baseline;
+  gap:6.2px;
+}
+
+.apv-logo::first-letter{
+  color:var(--amber);
+}
+
+.apv-logo{
+  font-family:'Playfair Display',serif;
+  font-weight:700;
+  font-size:16.12px;
+  letter-spacing:.62px;
+  color:var(--amber);
+  line-height:1;
+}
+
+.apv-logo span{
+  font-family:'JetBrains Mono',monospace;
+  font-size:7.44px;
+  letter-spacing:2.48px;
+  text-transform:lowercase;
+  color:var(--text-faint);
+  font-weight:400;
+}
+
+.apv-nav{
+  display:flex;
+  gap:18px;
+  align-items:center;
+}
+
+.apv-nav span{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9.5px;
+  letter-spacing:1px;
+  text-transform:uppercase;
+  color:var(--text-faint);
+}
+
+.apv-nav .on{
+  color:var(--amber);
+}
+
+.apv-body{
+  padding:18px;
+}
+
+.apv-greetrow{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  margin-bottom:16px;
+}
+
+.apv-greet{
+  font-family:'Playfair Display',serif;
+  font-size:24px;
+  font-weight:600;
+  color:var(--text);
+  line-height:1.1;
+}
+
+.apv-greet em{
+  color:var(--amber);
+  font-style:normal;
+}
+
+.apv-date{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:1.5px;
+  color:var(--text-faint);
+  text-transform:uppercase;
+  margin-top:7px;
+}
+
+.apv-tier{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:1px;
+  color:var(--amber);
+  text-transform:uppercase;
+  border:1px solid var(--amber-line);
+  border-radius:8px;
+  padding:7px 11px;
+  display:flex;
+  align-items:center;
+  gap:6px;
+  white-space:nowrap;
+}
+
+.apv-tier span{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--amber);
+  display:inline-block;
+}
+
+.apv-plan{
+  padding:16px;
+  border-radius:13px;
+  background:#0b0d10;
+  border:1px solid rgba(255,255,255,0.06);
+  margin-bottom:12px;
+}
+
+.apv-plan-top{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+}
+
+.apv-kicker{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:1.5px;
+  color:var(--amber);
+  text-transform:uppercase;
+  margin-bottom:6px;
+}
+
+.apv-badge{
+  font-family:'JetBrains Mono',monospace;
+  font-size:8.5px;
+  letter-spacing:1px;
+  color:var(--amber);
+  text-transform:uppercase;
+  border:1px solid var(--amber-line);
+  border-radius:999px;
+  padding:5px 10px;
+}
+
+.apv-plan-name{
+  font-family:'Playfair Display',serif;
+  font-size:19px;
+  font-weight:600;
+  color:var(--text);
+  margin:0;
+}
+
+.apv-plan-meta{
+  font-family:'Hanken Grotesk',sans-serif;
+  font-size:11.5px;
+  color:var(--text-mid);
+  margin-top:8px;
+}
+
+.apv-stats{
+  display:flex;
+  gap:10px;
+  margin-bottom:12px;
+}
+
+.apv-stat{
+  flex:1;
+  padding:14px 15px;
+  border-radius:13px;
+  background:#0b0d10;
+  border:1px solid rgba(255,255,255,0.06);
+}
+
+.apv-stat-lbl{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:1.5px;
+  color:var(--text-faint);
+  text-transform:uppercase;
+  margin-bottom:12px;
+}
+
+.apv-stat-val{
+  display:flex;
+  align-items:baseline;
+  gap:4px;
+  font-family:'Playfair Display',serif;
+  font-size:30px;
+  font-weight:600;
+  color:var(--text);
+  line-height:1;
+}
+
+.apv-stat-val small{
+  font-family:'Hanken Grotesk',sans-serif;
+  font-size:13px;
+  color:var(--text-mid);
+  font-weight:400;
+}
+
+.apv-stat-foot{
+  font-family:'Hanken Grotesk',sans-serif;
+  font-size:12px;
+  color:var(--text-mid);
+  margin-top:8px;
+}
+
+.apv-stat-foot.g{
+  color:var(--green);
+}
+
+.apv-stat-foot.a{
+  color:var(--amber);
+}
+
+.apv-frog{
+  padding:15px;
+  border-radius:13px;
+  background:linear-gradient(180deg,rgba(74,165,107,0.13),rgba(74,165,107,0.035));
+  border:1px solid rgba(74,165,107,0.26);
+}
+
+.apv-frog-lbl{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;
+  letter-spacing:1.5px;
+  color:var(--green);
+  text-transform:uppercase;
+  margin-bottom:9px;
+}
+
+.apv-frog-name{
+  font-family:'Playfair Display',serif;
+  font-size:17px;
+  font-weight:600;
+  color:var(--text);
+  margin-bottom:12px;
+}
+
+.apv-frog-row{
+  display:flex;
+  gap:9px;
+}
+
+.apv-frog-cta{
+  background:var(--green);
+  color:#08130c;
+  font-family:'Hanken Grotesk',sans-serif;
+  font-size:12.5px;
+  font-weight:600;
+  padding:9px 16px;
+  border-radius:9px;
+}
+
+.apv-frog-ghost{
+  border:1px solid var(--border);
+  color:var(--text-mid);
+  font-family:'Hanken Grotesk',sans-serif;
+  font-size:12.5px;
+  padding:9px 16px;
+  border-radius:9px;
+}
+
+.auth-values{
+  position:relative;
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:28px;
+}
+
+.auth-value{
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+}
+
+.auth-value-ic{
+  flex-shrink:0;
+  width:40px;
+  height:40px;
+  border-radius:11px;
+  border:1px solid var(--amber-line);
+  background:rgba(224,164,59,0.07);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--amber);
+}
+
+.auth-value-t{
+  font-family:'Hanken Grotesk',sans-serif;
+  font-size:15.5px;
+  font-weight:600;
+  color:var(--text);
+  margin-bottom:3px;
+}
+
+.auth-value-d{
+  font-family:'Hanken Grotesk',sans-serif;
+  font-size:13.5px;
+  line-height:1.5;
+  color:var(--text-dim);
+}
+
+@media (max-width:880px){
+  /* Mobile auth: compact centered module. The controls + footer still fuse into
+     one card, but the card no longer spans full width and the internal rhythm
+     scales down with it. */
+  .auth-screen{grid-template-columns:1fr;display:block;min-height:100vh;min-height:100dvh}
+  .auth-right{display:none}
+  .auth-left{
+    justify-content:flex-start;min-height:100vh;min-height:100dvh;
+    padding:max(18px,env(safe-area-inset-top)) 22px max(22px,env(safe-area-inset-bottom));
+  }
+  .auth-logo{margin-bottom:0;font-size:1.5rem}
+  .auth-center{display:flex;flex-direction:column;align-items:center;width:100%;max-width:none;margin:0}
+  .auth-brand{
+    margin:clamp(64px,10.5vh,92px) auto 0;
+    gap:12px;max-width:356px;text-align:center;align-items:center;
+  }
+  .auth-headline{
+    font-size:clamp(3.02rem,12.3vw,3.58rem);
+    line-height:.98;font-weight:600;letter-spacing:-.035em;
+  }
+  .auth-sub{font-size:.94rem;line-height:1.45;max-width:312px;margin:0 auto}
+
+  .auth-controls,
+  .auth-foot{
+    width:min(322px,calc(100vw - 44px));
+    max-width:322px;
+    margin-left:auto;
+    margin-right:auto;
+    background:var(--surface);
+    border-color:var(--border2);
+  }
+  .auth-controls{
+    margin-top:clamp(42px,5.6vh,56px);
+    padding:22px 20px 3px;
+    border:1px solid var(--border2);
+    border-bottom:none;
+    border-radius:24px 24px 0 0;
+  }
+  .auth-foot{
+    margin-top:0;
+    margin-bottom:18px;
+    padding:12px 20px 15px;
+    gap:10px;
+    border:1px solid var(--border2);
+    border-top:none;
+    border-radius:0 0 24px 24px;
+  }
+
+  .macp-auth{gap:10px}
+  .macp-field{gap:7px}
+  .macp-label{font-size:.78rem}
+  .macp-oauth,
+  .macp-cta,
+  .macp-input{
+    min-height:48px;
+    border-radius:11px;
+    font-size:.94rem;
+  }
+  .macp-oauth{gap:10px;padding:0 14px}
+  .macp-input{padding:0 14px}
+  .macp-pw-wrap .macp-input{padding-right:42px}
+  .macp-pw-toggle{right:6px;width:32px;height:32px}
+  .macp-cta{margin-top:3px;gap:9px;box-shadow:0 8px 22px -10px rgba(212,146,42,0.58)}
+  .macp-divider{gap:13px;margin:2px 0 1px}
+  .macp-divider span{font-size:.52rem;letter-spacing:.18em}
+  .macp-auth #clerk-captcha{
+    align-self:center;
+    width:100%;
+    min-height:0;
+    margin:0 auto -12px;
+    overflow:visible;
+  }
+  .macp-auth #clerk-captcha:not(:empty){margin-top:0}
+  .macp-auth #clerk-captcha iframe,
+  .macp-auth #clerk-captcha > *{
+    max-width:none!important;
+    transform:scale(.86);
+    transform-origin:top center;
+  }
+  .auth-legal{font-size:.69rem;line-height:1.45;max-width:266px}
+  .auth-switch{font-size:.78rem}
+  .auth-switch button{font-size:.78rem}
+  .macp-otp-cells{gap:8px}
+  .macp-otp-cell{height:48px;border-radius:10px;font-size:1.24rem}
+}
+
+/* ── POST-AUTH "SETTING UP YOUR SYSTEM…" ── */
+.setup-wrap{
+  position:fixed;inset:0;z-index:9999;background:var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:24px;gap:22px;
+  background-image:radial-gradient(ellipse 60% 40% at 50% 18%,rgba(212,146,42,0.08) 0%,transparent 60%);
+  animation:fadeIn .35s ease both;
+}
+.setup-pill{
+  font-family:var(--font-mono);font-size:.7rem;letter-spacing:.42em;text-transform:uppercase;color:var(--amber);
+  border:1px solid rgba(212,146,42,0.35);border-radius:99px;padding:9px 26px;
+}
+.setup-title{font-family:var(--font-display);font-size:clamp(2.4rem,5vw,3.4rem);font-weight:700;line-height:1.0;color:var(--text)}
+.setup-title em{color:var(--amber);font-style:italic}
+.setup-sub{font-size:.98rem;color:var(--text-mid);font-weight:300}
+.setup-bar{width:min(420px,72vw);height:3px;background:var(--border);border-radius:99px;overflow:hidden;margin-top:6px}
+.setup-bar-fill{height:100%;background:var(--amber);border-radius:99px;width:14%;animation:setupFill 1.7s cubic-bezier(.4,0,.2,1) forwards}
+@keyframes setupFill{0%{width:14%}55%{width:66%}100%{width:82%}}
+.setup-steps{display:flex;flex-direction:column;gap:13px;align-items:flex-start;margin-top:10px}
+.setup-step{display:flex;align-items:center;gap:12px;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.16em;text-transform:uppercase}
+.setup-step.done{color:var(--text)}
+.setup-step.pending{color:var(--text-dim)}
+.setup-check{color:var(--green);font-size:.9rem}
+.setup-ring{width:14px;height:14px;border:1.5px solid var(--border2);border-top-color:var(--amber);border-radius:50%;animation:spin .8s linear infinite}
+
+/* ── MACP TOAST (replaces native alert) ── */
+.macp-toast{
+  position:fixed;left:50%;bottom:max(26px,env(safe-area-inset-bottom));transform:translateX(-50%);
+  z-index:10000;max-width:min(440px,calc(100vw - 32px));
+  display:flex;gap:12px;align-items:flex-start;
+  background:rgba(15,16,19,0.97);backdrop-filter:blur(14px);
+  border:1px solid var(--border2);border-left:3px solid var(--red);border-radius:var(--r2);
+  padding:14px 18px;box-shadow:var(--shadow);
+  animation:fadeUp .3s cubic-bezier(.22,.68,0,1.2) both;
+}
+.macp-toast.ok{border-left-color:var(--green)}
+.macp-toast-ic{flex-shrink:0;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;background:var(--red);color:#fff;margin-top:1px}
+.macp-toast.ok .macp-toast-ic{background:var(--green)}
+.macp-toast-body{display:flex;flex-direction:column;gap:3px}
+.macp-toast-title{font-family:var(--font-mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-mid)}
+.macp-toast-msg{font-size:.86rem;color:var(--text);line-height:1.45}
+.macp-toast-x{margin-left:auto;background:none;border:none;color:var(--text-dim);cursor:pointer;font-size:1rem;line-height:1;padding:2px 4px}
 
 /* ── Wizard ── */
 .wiz{max-width:620px;margin:0 auto;padding:52px 24px 100px}
@@ -917,6 +1635,113 @@ body,#root{
 .celebrate-emoji{font-size:3.5rem;margin-bottom:16px;animation:bounce 1s ease infinite}
 .celebrate-title{font-family:var(--font-display);font-size:2rem;font-weight:700;color:var(--green);margin-bottom:8px}
 .celebrate-sub{font-size:.9rem;color:var(--text-mid);line-height:1.6}
+
+/* Auth preview warmth pass — softer balanced Claude-style tuning only */
+.auth-right{
+  --amber:#e0a43b;
+  --amber-line:rgba(224,164,59,0.35);
+  --green:#4aa56b;
+  --text-faint:rgba(240,236,227,0.42);
+  --bg-raise:#0e0c0a;
+  --surface-1:#0d0b09;
+  --surface-2:#14110e;
+  --border:rgba(224,164,59,0.07);
+  --border2:rgba(224,164,59,0.11);
+
+  background:
+    radial-gradient(circle at 86% 6%, rgba(224,164,59,0.085) 0%, rgba(224,164,59,0.028) 30%, transparent 58%),
+    linear-gradient(160deg,#0d0906 0%,#050403 100%);
+}
+
+.auth-right::after{
+  background:
+    radial-gradient(circle,
+      rgba(224,164,59,0.155) 0%,
+      rgba(224,164,59,0.048) 34%,
+      rgba(224,164,59,0) 68%
+    );
+}
+
+.auth-pv{
+  background:#0e0c0a;
+  border-color:rgba(224,164,59,0.075);
+  box-shadow:
+    0 40px 80px -30px rgba(0,0,0,0.84),
+    0 0 0 1px rgba(224,164,59,0.026),
+    0 0 32px rgba(224,164,59,0.02);
+}
+
+.apv-bar{
+  background:#100d0a;
+  border-bottom-color:rgba(224,164,59,0.065);
+}
+
+.apv-plan,
+.apv-stat{
+  background:#0c0a08;
+  border-color:rgba(224,164,59,0.065);
+}
+
+.apv-frog{
+  background:
+    linear-gradient(180deg,rgba(74,165,107,0.10),rgba(15,48,31,0.075)),
+    #0c0a08;
+  border-color:rgba(74,165,107,0.22);
+}
+
+/* Auth preview — lighten dashboard card only */
+.auth-pv{
+  background:#11100d;
+  border-color:rgba(224,164,59,0.09);
+  box-shadow:
+    0 40px 80px -30px rgba(0,0,0,0.82),
+    0 0 0 1px rgba(224,164,59,0.03),
+    0 0 28px rgba(224,164,59,0.018);
+}
+
+.apv-bar{
+  background:#13110e;
+  border-bottom-color:rgba(224,164,59,0.075);
+}
+
+.apv-plan,
+.apv-stat{
+  background:#100e0b;
+  border-color:rgba(224,164,59,0.075);
+}
+
+.apv-frog{
+  background:
+    linear-gradient(180deg,rgba(74,165,107,0.105),rgba(15,48,31,0.07)),
+    #100e0b;
+  border-color:rgba(74,165,107,0.22);
+}
+
+/* Auth right panel — slightly darker background only */
+.auth-right{
+  background:
+    radial-gradient(circle at 86% 6%, rgba(224,164,59,0.068) 0%, rgba(224,164,59,0.022) 30%, transparent 58%),
+    linear-gradient(160deg,#0b0805 0%,#040302 100%);
+}
+
+.auth-right::after{
+  background:
+    radial-gradient(circle,
+      rgba(224,164,59,0.13) 0%,
+      rgba(224,164,59,0.04) 34%,
+      rgba(224,164,59,0) 68%
+    );
+}
+
+/* Auth preview — nudge dashboard panel slightly upward only */
+.auth-pv-tilt{
+  transform:translateY(-10px);
+}
+
+/* Auth preview — slightly wider dashboard only */
+.auth-pv{
+  width:582px;
+}
 
 /* responsive */
 @media(max-width:768px){
@@ -2151,7 +2976,24 @@ const previewSummary = String(preview?.aiPlanText || "")
 /* ─────────────────────────────────────────────────────────────────────────────
    DASHBOARD
 ───────────────────────────────────────────────────────────────────────────── */
-function MacpLoader() {
+function MacpLoader({ variant = "boot" }: { variant?: "boot" | "setup" }) {
+  // Premium post-auth transition — neutral hand-off while we route the user.
+  if (variant === "setup") {
+    return (
+      <div className="setup-wrap grain">
+        <div className="setup-pill">M · A · C · P SYSTEM</div>
+        <h1 className="setup-title">Opening your <em>system…</em></h1>
+        <p className="setup-sub">Checking your setup and sending you to the right place.</p>
+        <div className="setup-bar"><div className="setup-bar-fill" /></div>
+        <div className="setup-steps">
+          <div className="setup-step done"><span className="setup-check">✓</span> Account verified</div>
+          <div className="setup-step done"><span className="setup-check">✓</span> Setup checked</div>
+          <div className="setup-step pending"><span className="setup-ring" /> Opening MACP</div>
+        </div>
+      </div>
+    );
+  }
+  // Minimal boot loader (unchanged behavior on app cold-start).
   return (
     <div
       style={{
@@ -4394,25 +5236,480 @@ function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, pla
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   MACP AUTH CONTROLS
+   100% MACP-owned UI. Every control drives Clerk's REAL backend through its
+   custom-flow hooks — Clerk still owns auth, sessions and security:
+     • Google / Apple → signIn|signUp.authenticateWithRedirect (real OAuth)
+     • Email          → signIn.create / signUp.create + email_code verification
+     • setActive      → Clerk creates the real session
+   Providers are detected from the live Clerk environment (the same source
+   Clerk's own <SignIn/> reads), so Apple shows ONLY when truly configured.
+   No embedded <SignIn/> / <SignUp/>, no fake buttons, no fake OTP.
+───────────────────────────────────────────────────────────────────────────── */
+// Official-mark Google "G" (four-color) — vector, theme-safe.
+function GoogleMark() {
+  return (
+    <svg width="19" height="19" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+      <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+      <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+      <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571.001-.001 6.19 5.238 6.19 5.238-.438.398 6.594-4.807 6.594-14.809 0-1.341-.138-2.65-.389-3.917z"/>
+    </svg>
+  );
+}
+function AppleMark() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.36 1.43c.04 1.05-.36 2.07-1.05 2.83-.72.8-1.9 1.42-2.95 1.33-.12-1.02.4-2.08 1.05-2.78.73-.79 1.98-1.36 2.95-1.38ZM19.6 17.2c-.53 1.22-.78 1.77-1.46 2.85-.95 1.5-2.29 3.37-3.95 3.39-1.47.02-1.85-.97-3.85-.96-2 .01-2.42.97-3.9.96-1.66-.02-2.93-1.71-3.88-3.21-2.66-4.2-2.94-9.12-1.3-11.73 1.17-1.86 3.01-2.96 4.74-2.96 1.77 0 2.88.97 4.34.97 1.42 0 2.28-.98 4.33-.98 1.55 0 3.19.85 4.36 2.31-3.83 2.1-3.21 7.56.47 9.4Z"/>
+    </svg>
+  );
+}
+function MacpAuthErr({ text }: { text: string }) {
+  return (
+    <div className="macp-auth-err" role="alert" aria-live="assertive">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 16.5v.5"/>
+      </svg>
+      <span>{text}</span>
+    </div>
+  );
+}
+
+function MacpAuthControls({ mode }: { mode: "sign-in" | "sign-up" }) {
+  const clerk = useClerk();
+  const { isLoaded: authLoaded } = useAuth();
+  const { isLoaded: siLoaded, signIn, setActive: setActiveSignIn } = useSignIn();
+  const { isLoaded: suLoaded, signUp, setActive: setActiveSignUp } = useSignUp();
+
+  const isSignIn = mode === "sign-in";
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [code, setCode] = useState("");
+  const [step, setStep] = useState<"form" | "verify">("form");
+  const [busy, setBusy] = useState<null | "google" | "apple" | "email" | "verify" | "resend">(null);
+  const [error, setError] = useState("");
+
+  // Reset transient state when the user flips sign-in ⇄ sign-up.
+  useEffect(() => {
+    setStep("form"); setCode(""); setPassword(""); setError(""); setBusy(null);
+  }, [mode]);
+
+  const ready = authLoaded && siLoaded && suLoaded;
+
+  // Real provider detection — the exact source Clerk's own <SignIn/> reads to
+  // decide which social buttons to render. Prefer clerk-js's computed strategy
+  // arrays; fall back to deriving from the raw `social` map (enabled +
+  // authenticatable). Anything not configured server-side ⇒ button hidden.
+  const userSettings: any = (clerk as any)?.__unstable__environment?.userSettings;
+  const fromSocialMap: string[] = Object.entries(userSettings?.social || {})
+    .filter(([, v]: [string, any]) => v?.enabled && (v?.authenticatable ?? true))
+    .map(([k]) => k);
+  const enabledStrategies: string[] =
+    (userSettings?.authenticatableSocialStrategies?.length && userSettings.authenticatableSocialStrategies) ||
+    (userSettings?.socialProviderStrategies?.length && userSettings.socialProviderStrategies) ||
+    fromSocialMap;
+  const googleEnabled = enabledStrategies.includes("oauth_google");
+  const appleEnabled = enabledStrategies.includes("oauth_apple");
+
+  const friendlyError = (err: any): string =>
+    err?.errors?.[0]?.longMessage || err?.errors?.[0]?.message || err?.message ||
+    "Something went wrong. Please try again.";
+
+  const startOAuth = async (provider: "google" | "apple") => {
+    if (!ready || busy) return;
+    setError(""); setBusy(provider);
+    try {
+      // Survives the OAuth round-trip so the post-auth hand-off still fires on return.
+      sessionStorage.setItem("macp:auth-intent", mode);
+      const resource: any = isSignIn ? signIn : signUp;
+      await resource.authenticateWithRedirect({
+        strategy: provider === "google" ? "oauth_google" : "oauth_apple",
+        redirectUrl: window.location.origin + "/sso-callback",
+        redirectUrlComplete: window.location.origin + "/",
+        ...(isSignIn ? {} : { legalAccepted: true }),
+      });
+      // Browser redirects to the provider here — nothing below runs.
+    } catch (err) {
+      sessionStorage.removeItem("macp:auth-intent");
+      setError(friendlyError(err));
+      setBusy(null);
+    }
+  };
+
+  const submitEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ready || busy) return;
+    setError(""); setBusy("email");
+    try {
+      if (isSignIn) {
+        const res = await (signIn as any).create({ identifier: email.trim(), password });
+        if (res.status === "complete" && res.createdSessionId) {
+          await (setActiveSignIn as any)({ session: res.createdSessionId });
+          return; // session set → App's post-auth effect takes over
+        }
+        setError("We couldn't finish signing you in. Please try again.");
+        setBusy(null);
+      } else {
+        const res = await (signUp as any).create({ emailAddress: email.trim(), password, legalAccepted: true });
+        if (res.status === "complete" && res.createdSessionId) {
+          await (setActiveSignUp as any)({ session: res.createdSessionId });
+          return;
+        }
+        // Email verification required → send the real code, show our OTP step.
+        await (signUp as any).prepareEmailAddressVerification({ strategy: "email_code" });
+        setStep("verify");
+        setBusy(null);
+      }
+    } catch (err) {
+      setError(friendlyError(err));
+      setBusy(null);
+    }
+  };
+
+  const submitCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!ready || busy) return;
+    setError(""); setBusy("verify");
+    try {
+      const res = await (signUp as any).attemptEmailAddressVerification({ code: code.trim() });
+      if (res.status === "complete" && res.createdSessionId) {
+        await (setActiveSignUp as any)({ session: res.createdSessionId });
+        return;
+      }
+      setError("That code didn't verify. Check it and try again.");
+      setBusy(null);
+    } catch (err) {
+      setError(friendlyError(err));
+      setBusy(null);
+    }
+  };
+
+  const resendCode = async () => {
+    if (busy) return;
+    setError(""); setBusy("resend");
+    try {
+      await (signUp as any).prepareEmailAddressVerification({ strategy: "email_code" });
+    } catch (err) {
+      setError(friendlyError(err));
+    }
+    setBusy(null);
+  };
+
+  // While Clerk initializes — skeleton instead of a half-built form (no FOUC/pop).
+  if (!ready) {
+    return (
+      <div className="macp-auth" aria-busy="true" aria-live="polite">
+        <div className="macp-skel" style={{ height: 52 }} />
+        <div className="macp-skel" style={{ height: 13, width: "55%", margin: "9px auto" }} />
+        <div className="macp-skel" style={{ height: 52 }} />
+        <div className="macp-skel" style={{ height: 52 }} />
+      </div>
+    );
+  }
+
+  // ── Email-code verification step (real Clerk sign-up flow) ──
+  if (step === "verify") {
+    return (
+      <form className="macp-auth" onSubmit={submitCode} noValidate>
+        <button type="button" className="macp-back" onClick={() => { setStep("form"); setError(""); setCode(""); }}>
+          ← Back
+        </button>
+        <p className="macp-otp-hint">
+          Enter the 6-digit code we sent to <b>{email}</b>.
+        </p>
+        <div className="macp-field">
+          <label className="macp-label" htmlFor="macp-code">Verification code</label>
+          {/* Six display cells with a single real <input> sitting transparent on top —
+              all typing/paste flows straight into Clerk's `code` state. */}
+          <div className="macp-otp">
+            <input
+              id="macp-code" className="macp-otp-input" name="code"
+              inputMode="numeric" autoComplete="one-time-code" maxLength={6}
+              value={code} autoFocus aria-label="6-digit verification code"
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+            />
+            <div className="macp-otp-cells" aria-hidden="true">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div
+                  key={i}
+                  className={`macp-otp-cell${i === code.length && !error ? " active" : ""}${error ? " err" : ""}`}
+                >
+                  {code[i] || ""}
+                  {i === code.length && !error && <span className="macp-otp-caret" />}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        {error && <MacpAuthErr text={error} />}
+        <button type="submit" className="macp-cta" disabled={!!busy || code.length < 6}>
+          {busy === "verify" ? <><span className="macp-cta-spin" />Verifying…</> : "Verify & continue"}
+        </button>
+        <div className="macp-resend">
+          Didn't get it?{" "}
+          <button type="button" className="macp-auth-link" onClick={resendCode} disabled={busy === "resend"}>
+            {busy === "resend" ? "Sending…" : "Resend code"}
+          </button>
+        </div>
+      </form>
+    );
+  }
+
+  // ── Primary step: providers + email ──
+  return (
+    <div className="macp-auth">
+      {googleEnabled && (
+        <button type="button" className="macp-oauth" onClick={() => startOAuth("google")} disabled={!!busy}>
+          {busy === "google"
+            ? <span className="macp-cta-spin" style={{ borderColor: "rgba(240,236,227,0.3)", borderTopColor: "var(--text)" }} />
+            : <GoogleMark />}
+          Continue with Google
+        </button>
+      )}
+      {appleEnabled && (
+        <button type="button" className="macp-oauth" onClick={() => startOAuth("apple")} disabled={!!busy}>
+          {busy === "apple"
+            ? <span className="macp-cta-spin" style={{ borderColor: "rgba(240,236,227,0.3)", borderTopColor: "var(--text)" }} />
+            : <AppleMark />}
+          Continue with Apple
+        </button>
+      )}
+
+      {(googleEnabled || appleEnabled) && (
+        <div className="macp-divider"><span>or continue with email</span></div>
+      )}
+
+      <form className="macp-auth" onSubmit={submitEmail} noValidate>
+        <div className="macp-field">
+          <label className="macp-label" htmlFor="macp-email">Email address</label>
+          <input
+            id="macp-email" className="macp-input" name="email" type="email"
+            inputMode="email" autoComplete="email" placeholder="you@email.com"
+            value={email} onChange={(e) => setEmail(e.target.value)} required
+          />
+        </div>
+        <div className="macp-field">
+          <label className="macp-label" htmlFor="macp-pw">Password</label>
+          <div className="macp-pw-wrap">
+            <input
+              id="macp-pw" className="macp-input" name="password"
+              type={showPw ? "text" : "password"}
+              autoComplete={isSignIn ? "current-password" : "new-password"}
+              placeholder="••••••••" value={password}
+              onChange={(e) => setPassword(e.target.value)} required
+            />
+            <button
+              type="button" className="macp-pw-toggle" onClick={() => setShowPw((s) => !s)}
+              aria-label={showPw ? "Hide password" : "Show password"}
+            >
+              {showPw ? (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c7 0 10 8 10 8a18 18 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><path d="M3 3l18 18M6.6 6.6A18 18 0 0 0 2 12s3 8 10 8a9 9 0 0 0 5.4-1.6"/></svg>
+              ) : (
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M2 12s3-8 10-8 10 8 10 8-3 8-10 8-10-8-10-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {error && <MacpAuthErr text={error} />}
+
+        <button type="submit" className="macp-cta" disabled={!!busy}>
+          {busy === "email"
+            ? <><span className="macp-cta-spin" />{isSignIn ? "Signing in…" : "Creating account…"}</>
+            : <>{isSignIn ? "Sign in" : "Create account"}<span aria-hidden="true">→</span></>}
+        </button>
+      </form>
+
+      {/* Clerk attaches its real bot check here when sign-up needs it. Keep it compact so it never breaks the mobile card. */}
+      <div id="clerk-captcha" data-cl-theme="dark" data-cl-size="compact" />
+    </div>
+  );
+}
+
+function AuthShell({
+  initialMode = "sign-in",
+  onClose,
+}: {
+  initialMode?: "sign-in" | "sign-up";
+  onClose: () => void;
+}) {
+  const [mode, setMode] = useState<"sign-in" | "sign-up">(initialMode);
+  const isSignIn = mode === "sign-in";
+
+  return (
+    <div className="auth-screen grain">
+      {/* LEFT — MACP brand + Clerk-controlled auth */}
+      <div className="auth-left">
+        <button className="auth-logo" onClick={onClose} aria-label="Back to MACP home">
+          MACP<span>system</span>
+        </button>
+
+        {/* Form zone — vertically centered between the wordmark and the footer */}
+        <div className="auth-center">
+          <div className="auth-brand">
+            {isSignIn ? (
+              <h1 className="auth-headline">Sign in to your<br /><em>system.</em></h1>
+            ) : (
+              <h1 className="auth-headline">Build a system<br /><span>that <em>compounds.</em></span></h1>
+            )}
+            <p className="auth-sub">
+              {isSignIn
+                ? "Pick up your plan, streaks, and today's frog — exactly where you left off."
+                : "Generate your first AI plan in 3 minutes. No fluff."}
+            </p>
+          </div>
+
+          <div className="auth-controls">
+            <SignedOut>
+              <MacpAuthControls mode={mode} />
+            </SignedOut>
+            <SignedIn>
+              {/* Guards the one frame between Clerk completing and the
+                  post-auth transition taking over (no "already signed in" flash). */}
+              <p className="auth-sub" style={{ marginTop: 4 }}>Opening your system…</p>
+            </SignedIn>
+          </div>
+        </div>
+
+        <div className="auth-foot">
+          <div className="auth-legal">
+            By continuing you agree to MACP's <u>Terms</u> and <u>Privacy Policy</u>.
+          </div>
+          <div className="auth-foot-rule" />
+          <div className="auth-switch">
+            {isSignIn ? (
+              <>New to MACP?<button onClick={() => setMode("sign-up")}>Create your account</button></>
+            ) : (
+              <>Already have an account?<button onClick={() => setMode("sign-in")}>Sign in</button></>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT — product proof (static preview, desktop only) */}
+      <div className="auth-right" aria-hidden="true">
+        <div className="auth-pv-head">
+          <div className="auth-pv-eyebrow">YOUR SYSTEM, ALREADY RUNNING</div>
+          <h2 className="auth-pv-headline">
+            Plans, streaks, and today's frog — <em>right where you left them.</em>
+          </h2>
+        </div>
+
+        <div className="auth-pv-tilt">
+        <div className="auth-pv">
+          <div className="apv-bar">
+            <div className="apv-logo">MACP<span> system</span></div>
+            <div className="apv-nav">
+              <span className="on">DASHBOARD</span><span>CALENDAR</span><span>WEEKLY REVIEW</span>
+            </div>
+          </div>
+          <div className="apv-body">
+<div className="apv-greetrow">
+  <div>
+    <div className="apv-greet">Good afternoon, <em>jarvis</em></div>
+    <div className="apv-date">MONDAY, JUNE 1, 2026</div>
+  </div>
+  <div className="apv-tier"><span />TIER 1 · FOUNDATION</div>
+</div>
+
+            <div className="apv-plan">
+              <div className="apv-plan-top">
+                <div className="apv-kicker">CURRENT PLAN</div>
+                <div className="apv-badge">INITIAL</div>
+              </div>
+              <div className="apv-plan-name">Plan v1</div>
+              <div className="apv-plan-meta">Tier 1 · Foundation · Working professional</div>
+            </div>
+
+            <div className="apv-stats">
+              <div className="apv-stat">
+                <div className="apv-stat-lbl">Habits Today</div>
+                <div className="apv-stat-val">3<small> /5</small></div>
+                <div className="apv-stat-foot g">On track</div>
+              </div>
+              <div className="apv-stat">
+                <div className="apv-stat-lbl">Streak</div>
+                <div className="apv-stat-val">6<small> days</small></div>
+                <div className="apv-stat-foot a">Keep going</div>
+              </div>
+              <div className="apv-stat">
+                <div className="apv-stat-lbl">This Week</div>
+                <div className="apv-stat-val">72<small> %</small></div>
+                <div className="apv-stat-foot">+12% vs last</div>
+              </div>
+            </div>
+
+            <div className="apv-frog">
+              <div className="apv-frog-lbl">🐸 EAT THE FROG · HIGHEST LEVERAGE</div>
+              <div className="apv-frog-name">Practice new skill for 5 minutes</div>
+              <div className="apv-frog-row">
+                <span className="apv-frog-cta">Mark Complete</span>
+                <span className="apv-frog-ghost">Focus Mode · 25 min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div className="auth-values">
+          <div className="auth-value">
+            <div className="auth-value-ic">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6z"/><path d="M18 15l.8 2.2L21 18l-2.2.8L18 21l-.8-2.2L15 18l2.2-.8z"/></svg>
+            </div>
+            <div className="auth-value-txt">
+              <div className="auth-value-t">AI-built plans</div>
+              <div className="auth-value-d">Personalized to your real schedule and energy.</div>
+            </div>
+          </div>
+          <div className="auth-value">
+            <div className="auth-value-ic">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v4h-4"/><path d="M12 8v4l2.5 2"/></svg>
+            </div>
+            <div className="auth-value-txt">
+              <div className="auth-value-t">Weekly reviews</div>
+              <div className="auth-value-d">Recovers your streak when life happens.</div>
+            </div>
+          </div>
+          <div className="auth-value">
+            <div className="auth-value-ic">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19V5M4 19h16"/><path d="M8 16l3.5-4 3 2.5L20 7"/></svg>
+            </div>
+            <div className="auth-value-txt">
+              <div className="auth-value-t">Progress insights</div>
+              <div className="auth-value-d">Watch momentum compound, week over week.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    LANDING
 ───────────────────────────────────────────────────────────────────────────── */
 function Landing({
   onStart,
   onDashboard = () => {},
+  onAuth,
 }: {
   onStart: () => void;
   onDashboard?: () => void;
+  onAuth: (mode: "sign-in" | "sign-up") => void;
 }) {
   const { isSignedIn, userId } = useAuth(); // Checks if a user is logged in
-  const { openSignIn } = useClerk(); // Opens the popup modal dynamically
   const supabase = useSupabase();
+  const [ctaLoading, setCtaLoading] = useState(false);
 
   const handleAssessmentClick = async () => {
     if (!isSignedIn || !userId) {
-      openSignIn({ mode: "modal" });
+      onAuth("sign-up"); // open the MACP auth shell (sign-up intent for the primary CTA)
       return;
     }
 
+    setCtaLoading(true);
     try {
       const profile = await getMyProfile(supabase, userId);
   
@@ -4425,6 +5722,8 @@ function Landing({
     } catch (error) {
       console.error("Failed to check profile:", error);
       onStart();
+    } finally {
+      setCtaLoading(false);
     }
   };
 
@@ -4433,31 +5732,30 @@ function Landing({
       {/* --- CLERK AUTHENTICATION HEADER (FIXED POSITION) --- */}
       <header style={{ position: 'absolute', top: '8px', right: '16px', zIndex: 100 }}>
       <SignedOut>
-  <SignInButton mode="modal">
-    <button
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 10,
-        background: "rgba(15,16,19,0.92)",
-        color: "var(--amber)",
-        border: "1px solid rgba(212,146,42,0.28)",
-        borderRadius: "var(--r)",
-        minHeight: 40,
-padding: "0 15px",
-        fontFamily: "var(--font-body)",
-        fontSize: ".78rem",
-        fontWeight: 700,
-        letterSpacing: ".04em",
-        cursor: "pointer",
-        boxShadow: "0 0 18px rgba(212,146,42,0.12)",
-        backdropFilter: "blur(14px)",
-      }}
-    >
-      Sign In
-    </button>
-  </SignInButton>
-</SignedOut>
+        <button
+          onClick={() => onAuth("sign-in")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            background: "rgba(15,16,19,0.92)",
+            color: "var(--amber)",
+            border: "1px solid rgba(212,146,42,0.28)",
+            borderRadius: "var(--r)",
+            minHeight: 40,
+            padding: "0 15px",
+            fontFamily: "var(--font-body)",
+            fontSize: ".78rem",
+            fontWeight: 700,
+            letterSpacing: ".04em",
+            cursor: "pointer",
+            boxShadow: "0 0 18px rgba(212,146,42,0.12)",
+            backdropFilter: "blur(14px)",
+          }}
+        >
+          Sign In
+        </button>
+      </SignedOut>
         <SignedIn>
   <div
     style={{
@@ -4505,9 +5803,13 @@ padding: "0 15px",
           <span key={f} className="fw-badge">{f}</span>
         ))}
       </div>
-      <button className="land-cta fu fu4" onClick={handleAssessmentClick}>
-  Begin Your Assessment →
-</button>
+      <button className="land-cta fu fu4" onClick={handleAssessmentClick} disabled={ctaLoading}>
+        {ctaLoading ? (
+          <><span className="land-cta-spin" />Checking your system…</>
+        ) : (
+          "Begin Your Assessment →"
+        )}
+      </button>
       <div className="fu fu5" style={{fontFamily:"var(--font-mono)",fontSize:".62rem",letterSpacing:".1em",color:"var(--text-dim)",marginTop:8}}>
         Takes 3 minutes · Personalized by Claude AI · No fluff
       </div>
@@ -4525,14 +5827,46 @@ const [plan, setPlan] = useState<any>(null);
 const [booting, setBooting] = useState(true);
 const [weeklyReviews, setWeeklyReviews] = useState<any[]>([]);
 const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
+const [authMode, setAuthMode] = useState<"sign-in" | "sign-up">("sign-in");
+const [postAuthSetup, setPostAuthSetup] = useState(false);
+const [appNotice, setAppNotice] = useState<{ kind: "error" | "ok"; text: string } | null>(null);
+const intendedFromAuthRef = useRef(false);
 
   const supabase = useSupabase();
   const { isLoaded, isSignedIn, userId } = useAuth();
   const { isPremium } = useEntitlement();
 
+  // MACP-styled inline feedback (replaces native alert()).
+  const showNotice = useCallback((text: string, kind: "error" | "ok" = "error") => {
+    setAppNotice({ kind, text });
+  }, []);
+  useEffect(() => {
+    if (!appNotice) return;
+    const t = setTimeout(() => setAppNotice(null), 5000);
+    return () => clearTimeout(t);
+  }, [appNotice]);
+
+  // Open the full MACP auth shell (replaces the default Clerk modal).
+  const openAuth = useCallback((mode: "sign-in" | "sign-up") => {
+    setAuthMode(mode);
+    intendedFromAuthRef.current = true; // marks this as an in-session auth → post-auth transition
+    setScreen("auth");
+  }, []);
+
   useEffect(() => {
     async function checkSavedUser() {
       if (!isLoaded) return;
+
+      // In-session auth (email) flags via the ref; OAuth survives the redirect
+      // round-trip via sessionStorage. Either one means "show the hand-off".
+      const oauthIntent =
+        typeof window !== "undefined" ? window.sessionStorage.getItem("macp:auth-intent") : null;
+      const fromAuth = intendedFromAuthRef.current || !!oauthIntent;
+      if (fromAuth) {
+        // Premium post-auth hand-off: "Opening your system…"
+        setPostAuthSetup(true);
+        setBooting(true);
+      }
   
       if (!isSignedIn || !userId) {
         setBooting(false);
@@ -4555,14 +5889,21 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
           } else {
             setScreen("generating");
           }
+        } else if (fromAuth) {
+          // New user who just authenticated via the shell → start the assessment.
+          setScreen("wizard");
         }
       } catch (error) {
         console.error("Failed to load saved user:", error);
+        if (fromAuth) setScreen("wizard"); // fail open to assessment (matches prior modal flow)
       } finally {
+        intendedFromAuthRef.current = false;
+        if (typeof window !== "undefined") window.sessionStorage.removeItem("macp:auth-intent");
+        setPostAuthSetup(false);
         setBooting(false);
       }
     }
-  
+
     checkSavedUser();
   }, [isLoaded, isSignedIn, userId, supabase]);
 
@@ -4587,7 +5928,7 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
     setProfile(p);
 
     if (!userId) {
-      alert("You must be signed in to save your assessment.");
+      showNotice("You must be signed in to save your assessment.");
       return;
     }
 
@@ -4596,7 +5937,7 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
       setScreen("generating");
     } catch (error) {
       console.error("Failed to save onboarding:", error);
-      alert("Your assessment could not be saved. Please try again.");
+      showNotice("Your assessment could not be saved. Please try again.");
     }
   };
   const handlePlanGenerated = (generatedPlan) => {
@@ -4606,7 +5947,7 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
 
   const handleReset = async () => {
     if (!userId) {
-      alert("You must be signed in to start over.");
+      showNotice("You must be signed in to start over.");
       return;
     }
 
@@ -4627,7 +5968,7 @@ const [weeklyReviewsLoading, setWeeklyReviewsLoading] = useState(false);
       setScreen("wizard");
     } catch (error) {
       console.error("Failed to start over:", error);
-      alert("Start Over failed. Check the console/Supabase permissions.");
+      showNotice("Start Over failed. Check the console/Supabase permissions.");
     } finally {
       setBooting(false);
     }
@@ -4654,11 +5995,45 @@ const NAV = showAppNav
       { id: "settings", label: "Profile & Export" },
     ]
   : [];
+  // OAuth return path. Clerk redirects back here after Google/Apple; the invisible
+  // <AuthenticateWithRedirectCallback/> completes the real handshake, then sends the
+  // user to "/". Plain window.location check — no router, no embedded sign-in UI.
+  if (typeof window !== "undefined" && window.location.pathname === "/sso-callback") {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <div className="setup-wrap grain">
+          <div className="setup-pill">M · A · C · P SYSTEM</div>
+          <h1 className="setup-title">Opening your <em>system…</em></h1>
+          <p className="setup-sub">Checking your setup and sending you to the right place.</p>
+          <div className="setup-bar"><div className="setup-bar-fill" /></div>
+        </div>
+        <AuthenticateWithRedirectCallback
+          signInForceRedirectUrl="/"
+          signUpForceRedirectUrl="/"
+        />
+      </>
+    );
+  }
   if (booting) {
     return (
       <>
         <style>{STYLES}</style>
-        <MacpLoader />
+        <MacpLoader variant={postAuthSetup ? "setup" : "boot"} />
+      </>
+    );
+  }
+  if (screen === "auth") {
+    return (
+      <>
+        <style>{STYLES}</style>
+        <AuthShell
+          initialMode={authMode}
+          onClose={() => {
+            intendedFromAuthRef.current = false;
+            setScreen("landing");
+          }}
+        />
       </>
     );
   }
@@ -4713,6 +6088,7 @@ const NAV = showAppNav
   <Landing
     onStart={() => setScreen("wizard")}
     onDashboard={() => setScreen("dashboard")}
+    onAuth={openAuth}
   />
 )}
                     {screen === "wizard" && (
@@ -4780,6 +6156,20 @@ const NAV = showAppNav
 )}
         </div>
       </div>
+      {appNotice && (
+        <div
+          className={`macp-toast ${appNotice.kind === "ok" ? "ok" : ""}`}
+          role="alert"
+          aria-live="assertive"
+        >
+          <span className="macp-toast-ic">{appNotice.kind === "ok" ? "✓" : "!"}</span>
+          <div className="macp-toast-body">
+            <span className="macp-toast-title">{appNotice.kind === "ok" ? "MACP" : "Heads up"}</span>
+            <span className="macp-toast-msg">{appNotice.text}</span>
+          </div>
+          <button className="macp-toast-x" onClick={() => setAppNotice(null)} aria-label="Dismiss">×</button>
+        </div>
+      )}
     </>
   );
 }
