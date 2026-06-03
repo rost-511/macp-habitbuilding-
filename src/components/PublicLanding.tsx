@@ -180,7 +180,6 @@ window.addEventListener("scroll", onScroll, { passive: true });
     };
     const raf = requestAnimationFrame(revealInView);
     window.addEventListener("load", revealInView);
-    const safety = window.setTimeout(() => revealables.forEach(fire), 1400);
 
     return () => {
   pageEl?.removeEventListener("scroll", onScroll);
@@ -188,7 +187,6 @@ window.addEventListener("scroll", onScroll, { passive: true });
   io.disconnect();
   window.removeEventListener("load", revealInView);
   cancelAnimationFrame(raf);
-  clearTimeout(safety);
 };
   }, []);
 

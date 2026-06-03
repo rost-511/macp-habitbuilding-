@@ -145,9 +145,9 @@ body,#root{
   position:relative;
   font-family:var(--font-body);color:var(--text);
   background:
-    radial-gradient(70% 50% at 92% -2%, rgba(212,146,42,0.10) 0%, rgba(212,146,42,0) 58%),
-    radial-gradient(50% 40% at 4% 6%, rgba(212,146,42,0.04) 0%, rgba(212,146,42,0) 60%);
-  background-repeat:no-repeat;
+  radial-gradient(70% 50% at 92% -2%, rgba(212,146,42,0.10) 0%, rgba(212,146,42,0) 58%),
+  radial-gradient(50% 40% at 4% 6%, rgba(212,146,42,0.04) 0%, rgba(212,146,42,0) 60%);
+background-repeat:no-repeat;
 }
 .pl-wrap{width:100%;max-width:1280px;margin:0 auto;padding:0 56px}
 
@@ -247,8 +247,21 @@ body,#root{
 }
 .pl-pv .auth-pv{transform:none;width:100%;max-width:100%;box-shadow:0 50px 110px -40px rgba(0,0,0,0.85)}
 .pl-dash-float{position:relative}
-.pl-dash-float::before{content:"";position:absolute;inset:-16% -10% -22% -4%;z-index:0;pointer-events:none;
-  background:radial-gradient(58% 52% at 70% 18%, rgba(212,146,42,0.16) 0%, rgba(212,146,42,0) 70%)}
+.pl-dash-float::before{
+  content:"";
+  position:absolute;
+  inset:-22% -18% -26% -12%;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(circle at 68% 18%,
+      rgba(212,146,42,0.105) 0%,
+      rgba(212,146,42,0.045) 22%,
+      rgba(212,146,42,0.015) 42%,
+      rgba(212,146,42,0) 68%
+    );
+  filter:blur(18px);
+}
 .pl-dash-float .pl-pv{position:relative;z-index:1}
 
 /* wide preview variant (command-surface proof) */
@@ -338,6 +351,218 @@ body,#root{
 .pl-foot-links a{font-family:var(--font-body);font-size:14px;color:var(--text-mid);text-decoration:none;cursor:pointer}
 .pl-foot-links a:hover{color:var(--text)}
 .pl-foot-copy{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim)}
+
+/* Landing color polish — creamy headlines + brighter amber */
+.pl-root{
+  --pl-text-cream:#efe7dc;
+  --pl-amber-bright:#e2a23a;
+  --pl-amber-glow-soft:rgba(226,162,58,0.24);
+}
+
+/* Big white display text: softer, creamier, less harsh */
+.pl-h1,
+.pl-section-head h2,
+.pl-step h3,
+.pl-feat h3,
+.pl-callout h4,
+.pl-final h2,
+.pl-mini h5,
+.pl-strip-t{
+  color:var(--pl-text-cream);
+}
+
+/* Amber text/signals: slightly brighter + subtle premium glow */
+.pl-eyebrow,
+.pl-accent,
+.pl-wordmark .mk,
+.pl-step .pl-num,
+.pl-momentum-lbl,
+.pl-callout .pl-label{
+  color:var(--pl-amber-bright);
+  text-shadow:0 0 18px var(--pl-amber-glow-soft);
+}
+
+/* Amber icons/dots also get a tiny lift */
+.pl-tile,
+.pl-btn-ghost svg{
+  color:var(--pl-amber-bright);
+}
+
+.pl-trust-dot{
+  background:var(--pl-amber-bright);
+  box-shadow:0 0 10px rgba(226,162,58,0.28);
+}
+
+/* Primary CTA: slightly richer amber, still not neon */
+.pl-btn-amber{
+  background:linear-gradient(180deg,#e3a43b 0%,#d6952f 100%);
+  box-shadow:
+    0 0 0 1px rgba(226,162,58,0.22),
+    0 16px 44px -14px rgba(226,162,58,0.42);
+}
+
+/* Final CTA glow — soft ambient halo, no clipped rectangle */
+.pl-final{
+  position:relative;
+  isolation:isolate;
+  background:transparent;
+  overflow:visible;
+}
+
+.pl-final::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:26%;
+  width:min(820px, 72vw);
+  height:360px;
+  transform:translate(-50%, -50%);
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse at center,
+      rgba(226,162,58,0.13) 0%,
+      rgba(226,162,58,0.07) 28%,
+      rgba(226,162,58,0.025) 52%,
+      rgba(226,162,58,0) 78%
+    );
+  filter:blur(28px);
+  opacity:.9;
+}
+
+.pl-final > *{
+  position:relative;
+  z-index:1;
+  transform:translateY(-72px);
+}
+
+/* Hero dashboard preview — slightly taller to align with hero text */
+.pl-hero .pl-pv .auth-pv{
+  min-height:550px;
+  display:flex;
+  flex-direction:column;
+}
+
+.pl-hero .pl-pv .apv-body{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+}
+
+.pl-hero .pl-pv .apv-plan{
+  margin-bottom:16px;
+}
+
+.pl-hero .pl-pv .apv-stats{
+  margin-bottom:16px;
+}
+
+.pl-hero .pl-pv .apv-frog{
+  margin-top:auto;
+  padding:18px;
+}
+
+/* Keep mobile natural */
+@media(max-width:880px){
+  .pl-hero .pl-pv .auth-pv{
+    min-height:0;
+  }
+}
+
+/* Hero dashboard preview — lift only, no resize */
+.pl-hero .pl-dash-float{
+  margin-top:-28px;
+}
+
+@media(max-width:880px){
+  .pl-hero .pl-dash-float{
+    margin-top:0;
+  }
+}
+
+/* Hero dashboard preview — lighter glass panel */
+.pl-hero .pl-pv .auth-pv{
+  background:rgba(22,18,13,0.38);
+  -webkit-backdrop-filter:blur(22px) saturate(1.22);
+  backdrop-filter:blur(22px) saturate(1.22);
+  border:1px solid rgba(226,162,58,0.075);
+  box-shadow:
+    0 34px 90px -34px rgba(0,0,0,0.78),
+    0 0 0 1px rgba(226,162,58,0.045),
+    0 0 58px rgba(226,162,58,0.065);
+}
+
+/* Inner dashboard cards — lighter glass */
+.pl-hero .pl-pv .apv-plan,
+.pl-hero .pl-pv .apv-stat{
+  background:rgba(18,14,10,0.36);
+  -webkit-backdrop-filter:blur(14px) saturate(1.16);
+  backdrop-filter:blur(14px) saturate(1.16);
+  border-color:rgba(240,236,227,0.055);
+}
+
+.pl-hero .pl-pv .apv-bar{
+  background:rgba(20,16,11,0.30);
+  -webkit-backdrop-filter:blur(14px) saturate(1.16);
+  backdrop-filter:blur(14px) saturate(1.16);
+  border-bottom-color:rgba(240,236,227,0.05);
+}
+
+/* Soften hero dashboard sharp inner outlines */
+.pl-hero .pl-pv .apv-frog{
+  border-color:rgba(74,165,107,0.16);
+  box-shadow:inset 0 0 22px rgba(74,165,107,0.035);
+}
+
+.pl-hero .pl-pv .apv-daytag,
+.pl-hero .pl-pv .apv-pill{
+  border-color:rgba(226,162,58,0.14);
+}
+
+/* Hero dashboard preview — stable glass panel, fade contents only */
+.pl-hero .pl-dash-float,
+.pl-hero .pl-dash-float.pl-reveal,
+.pl-hero .pl-dash-float.pl-in{
+  opacity:1 !important;
+  filter:none !important;
+}
+
+/* Panel itself stays final/dark immediately */
+.pl-hero .pl-dash-float.pl-reveal .auth-pv{
+  opacity:1 !important;
+  filter:none !important;
+}
+
+/* Fade the actual dashboard content, not the glass shell */
+.pl-hero .pl-dash-float.pl-reveal .auth-pv > *{
+  opacity:0;
+  transform:translateY(8px);
+  transition:
+    opacity .68s cubic-bezier(.22,1,.36,1),
+    transform .68s cubic-bezier(.22,1,.36,1);
+}
+
+.pl-hero .pl-dash-float.pl-reveal.pl-in .auth-pv > *{
+  opacity:1;
+  transform:translateY(0);
+}
+
+/* Hero dashboard preview — permanent lift, separate from animation */
+.pl-hero .pl-dash-float{
+  margin-top:-36px;
+}
+
+@media(max-width:880px){
+  .pl-hero .pl-dash-float{
+    margin-top:0;
+  }
+}
+
+/* Landing base background — warmer black, no extra glow */
+.pl-root{
+  background:
+    linear-gradient(180deg,#0f0a05 0%,#0a0704 48%,#060403 100%);
+}
 
 /* Landing text warmth pass — supporting text only */
 .pl-links a,
