@@ -3,6 +3,7 @@ import { SignedIn, SignedOut, UserButton, useAuth, useSignIn, useSignUp, useCler
 import { useSupabase } from "./lib/useSupabase";
 import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
+import PublicLanding from "./components/PublicLanding";
 import { buildPlanPrompt, buildReviewPrompt, PLAN_PROMPT_VERSION, REVIEW_PROMPT_VERSION, buildRecoveryPrompt, RECOVERY_PROMPT_VERSION } from "./lib/prompts";
 import { PLAN_MODES, normalizePlanMode } from "./lib/planModes";
 import {
@@ -102,7 +103,7 @@ body,#root{
 .si{animation:slideIn .35s cubic-bezier(.22,.68,0,1.2) both}
 
 /* ── Layout ── */
-.app-shell{display:flex;flex-direction:column;min-height:100vh;overflow:hidden}
+.app-shell{display:flex;flex-direction:column;height:100vh;min-height:100vh;overflow:hidden}
 
 /* ── Top bar ── */
 .topbar{
@@ -134,41 +135,287 @@ body,#root{
 }
 
 /* ── Page container ── */
-.page{flex:1;overflow-y:auto;overflow-x:hidden}
+.page{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden}
 
-/* ── Landing ── */
-.land{
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:calc(100vh - 56px);padding:60px 24px;text-align:center;gap:28px;
-  background:radial-gradient(ellipse 70% 50% at 50% 0%,rgba(212,146,42,0.07) 0%,transparent 65%);
+/* ── Public Landing (Project 14B) ───────────────────────────────────────────
+   Marketing page. Owns its own sticky header (.pl-header). Scroll container is
+   the app's .page element. All classes namespaced pl-*; the embedded dashboard
+   previews reuse the auth screen's apv-* classes via the .pl-pv color scope. */
+.pl-root{
+  position:relative;
+  font-family:var(--font-body);color:var(--text);
+  background:
+    radial-gradient(70% 50% at 92% -2%, rgba(212,146,42,0.10) 0%, rgba(212,146,42,0) 58%),
+    radial-gradient(50% 40% at 4% 6%, rgba(212,146,42,0.04) 0%, rgba(212,146,42,0) 60%);
+  background-repeat:no-repeat;
 }
-.land-eyebrow{
-  font-family:var(--font-mono);font-size:.65rem;letter-spacing:.22em;text-transform:uppercase;
-  color:var(--amber);border:1px solid rgba(212,146,42,0.35);border-radius:99px;padding:6px 18px;
+.pl-wrap{width:100%;max-width:1280px;margin:0 auto;padding:0 56px}
+
+/* shared type */
+.pl-eyebrow{font-family:var(--font-mono);font-weight:500;font-size:13px;text-transform:uppercase;letter-spacing:.32em;color:var(--amber)}
+.pl-label{font-family:var(--font-mono);font-weight:500;font-size:11px;text-transform:uppercase;letter-spacing:.22em;color:var(--text-dim)}
+.pl-accent{font-style:italic;font-weight:600;color:var(--amber)}
+
+/* wordmark */
+.pl-wordmark{display:inline-flex;align-items:baseline;gap:9px;background:none;border:none;padding:0;cursor:pointer;text-decoration:none}
+.pl-wordmark .mk{font-family:var(--font-display);font-weight:700;color:var(--amber);letter-spacing:-.01em;line-height:1}
+.pl-wordmark .sy{font-family:var(--font-mono);color:#a39c92;letter-spacing:.42em;line-height:1}
+
+/* buttons */
+.pl-btn-amber{
+  font-family:var(--font-body);font-weight:600;font-size:16px;line-height:1;
+  color:#07080a;background:var(--amber);border:none;border-radius:var(--r);
+  padding:15px 24px;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  cursor:pointer;text-decoration:none;white-space:nowrap;
+  transition:transform .18s ease,box-shadow .18s ease,background .18s ease,opacity .18s ease;
+  box-shadow:0 0 0 1px rgba(212,146,42,0.2),0 16px 44px -14px rgba(212,146,42,0.45);
 }
-.land-h1{
-  font-family:var(--font-display);font-size:clamp(3.2rem,9vw,6.5rem);font-weight:700;
-  line-height:.92;letter-spacing:-.01em;max-width:820px;
+.pl-btn-amber:hover{transform:translateY(-2px);box-shadow:0 0 0 1px rgba(212,146,42,0.28),0 20px 50px -14px rgba(212,146,42,0.5)}
+.pl-btn-amber:active{transform:scale(.985);box-shadow:none}
+.pl-btn-amber:disabled{opacity:.7;cursor:wait;transform:none}
+.pl-btn-amber svg{width:18px;height:18px;transition:transform .18s ease}
+.pl-btn-amber:hover svg{transform:translateX(3px)}
+.pl-btn-ghost{
+  font-family:var(--font-body);font-weight:600;font-size:16px;line-height:1;
+  color:var(--text);background:transparent;border:1px solid var(--border);
+  border-radius:var(--r);padding:15px 22px;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  cursor:pointer;text-decoration:none;white-space:nowrap;transition:border-color .18s ease,background .18s ease,color .18s ease;
 }
-.land-h1 em{color:var(--amber);font-style:italic}
-.land-sub{font-size:1.05rem;color:var(--text-mid);max-width:480px;line-height:1.7;font-weight:300}
-.land-frameworks{display:flex;flex-wrap:wrap;justify-content:center;gap:10px}
-.fw-badge{
-  font-family:var(--font-mono);font-size:.63rem;letter-spacing:.1em;text-transform:uppercase;
-  border:1px solid var(--border2);border-radius:4px;padding:5px 12px;color:var(--text-dim);
-  background:var(--surface);
+.pl-btn-ghost:hover{border-color:var(--border2);background:var(--surface);color:var(--text)}
+.pl-btn-ghost svg{width:17px;height:17px;color:var(--amber);transition:transform .18s ease}
+.pl-btn-ghost:hover svg{transform:translateY(2px)}
+.pl-spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(7,8,10,0.35);border-top-color:#07080a;border-radius:50%;animation:spin .7s linear infinite}
+
+/* header */
+/* Landing header — transparent at top, glass on scroll */
+.pl-header{
+  position:sticky;
+  top:0;
+  z-index:40;
+  border-bottom:1px solid transparent;
+  background:transparent;
+  -webkit-backdrop-filter:none;
+  backdrop-filter:none;
+  transition:
+    background .25s ease,
+    border-color .25s ease,
+    -webkit-backdrop-filter .25s ease,
+    backdrop-filter .25s ease;
 }
-.land-cta{
-  margin-top:8px;padding:18px 48px;
-  font-family:var(--font-body);font-size:1rem;font-weight:700;letter-spacing:.05em;
-  background:var(--amber);color:#07080a;border:none;border-radius:var(--r);
-  cursor:pointer;transition:all .22s;
-  box-shadow:0 0 40px rgba(212,146,42,0.35),0 4px 16px rgba(0,0,0,0.5);
+
+.pl-header.scrolled{
+  background:rgba(7,8,10,0.78);
+  -webkit-backdrop-filter:blur(14px) saturate(1.2);
+  backdrop-filter:blur(14px) saturate(1.2);
+  border-bottom-color:var(--border);
 }
-.land-cta:hover{transform:translateY(-2px);box-shadow:0 0 60px rgba(212,146,42,0.45),0 8px 24px rgba(0,0,0,0.5)}
-.land-cta:active{transform:translateY(0)}
-.land-cta:disabled{opacity:.7;cursor:wait;transform:none;box-shadow:0 0 24px rgba(212,146,42,0.22)}
-.land-cta-spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(7,8,10,0.35);border-top-color:#07080a;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:9px}
+.pl-nav{display:flex;align-items:center;justify-content:space-between;height:78px}
+.pl-links{display:flex;align-items:center;gap:34px}
+.pl-links a{font-family:var(--font-body);font-size:15px;color:var(--text-mid);text-decoration:none;cursor:pointer;transition:color .16s ease}
+.pl-links a:hover{color:var(--text)}
+.pl-actions{display:flex;align-items:center;gap:18px}
+.pl-signin{font-family:var(--font-body);font-size:15px;color:var(--text-mid);background:none;border:none;text-decoration:none;cursor:pointer;transition:color .16s ease}
+.pl-signin:hover{color:var(--text)}
+.pl-header-cta{padding:11px 20px;font-size:15px}
+.pl-menu-toggle{display:none;background:none;border:none;cursor:pointer;color:var(--text);padding:6px}
+.pl-mobile-menu{display:flex;flex-direction:column;gap:2px;position:absolute;top:78px;left:0;right:0;z-index:39;
+  background:rgba(7,8,10,0.97);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--border);padding:10px 28px 18px}
+.pl-mobile-menu a,.pl-mobile-menu button{text-align:left;font-family:var(--font-body);font-size:16px;color:var(--text-mid);background:none;border:none;padding:13px 0;cursor:pointer;text-decoration:none}
+.pl-mobile-menu a:hover,.pl-mobile-menu button:hover{color:var(--text)}
+
+/* hero */
+.pl-hero{padding:76px 0 96px}
+.pl-hero-grid{display:grid;grid-template-columns:1fr 1.06fr;gap:72px;align-items:center}
+.pl-hero .pl-eyebrow{margin-bottom:22px}
+.pl-h1{font-family:var(--font-display);font-weight:700;font-size:clamp(44px,4.6vw,64px);line-height:1.05;letter-spacing:-.01em;color:var(--text);margin:0 0 26px}
+.pl-hero-sub{font-family:var(--font-body);font-size:19px;color:#a39c92;line-height:1.55;max-width:510px;margin:0 0 36px}
+.pl-cta-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.pl-trust{display:flex;align-items:center;gap:22px;margin-top:46px;flex-wrap:wrap}
+.pl-trust-item{display:flex;align-items:center;gap:9px}
+.pl-trust-dot{width:6px;height:6px;border-radius:50%;background:var(--amber);flex:none}
+.pl-trust-t{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-mid)}
+
+/* dashboard preview color scope — mirrors .auth-right so reused apv-* classes
+   render in the richer preview amber/green, matching the auth screen exactly */
+.pl-pv{
+  --amber:#e0a43b;
+  --amber-line:rgba(224,164,59,0.38);
+  --green:#4aa56b;
+  --text-faint:rgba(240,236,227,0.42);
+  --bg-raise:#0c0d10;
+}
+.pl-pv .auth-pv{transform:none;width:100%;max-width:100%;box-shadow:0 50px 110px -40px rgba(0,0,0,0.85)}
+.pl-dash-float{position:relative}
+.pl-dash-float::before{content:"";position:absolute;inset:-16% -10% -22% -4%;z-index:0;pointer-events:none;
+  background:radial-gradient(58% 52% at 70% 18%, rgba(212,146,42,0.16) 0%, rgba(212,146,42,0) 70%)}
+.pl-dash-float .pl-pv{position:relative;z-index:1}
+
+/* wide preview variant (command-surface proof) */
+.pl-pv-wide .auth-pv{background:linear-gradient(180deg, rgba(40,30,18,0.42) 0%, var(--bg-raise) 40%)}
+.pl-dw-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+.pl-momentum{background:#0b0d10;border:1px solid rgba(255,255,255,0.06);border-radius:13px;padding:18px;margin-bottom:12px}
+.pl-momentum-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.pl-momentum-lbl{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--amber)}
+.pl-momentum-pct{font-family:var(--font-display);font-weight:700;font-size:18px;color:var(--text)}
+.pl-bars{display:flex;align-items:flex-end;gap:10px;height:64px}
+.pl-bar{flex:1;border-radius:5px 5px 3px 3px;background:var(--surface2);position:relative}
+.pl-bar i{position:absolute;bottom:0;left:0;right:0;border-radius:5px 5px 3px 3px;background:var(--amber);
+  transform-origin:bottom;transform:scaleY(0);transition:transform .7s cubic-bezier(0.2,0.7,0.2,1);transition-delay:var(--bd,0ms)}
+.pl-bars.pl-in .pl-bar i{transform:scaleY(1)}
+.pl-bar.green i{background:var(--green)}
+.pl-bar.miss i{background:var(--border2)}
+.pl-dw-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pl-mini{background:#0b0d10;border:1px solid rgba(255,255,255,0.06);border-radius:13px;padding:16px}
+.pl-mini.pl-recover{background:linear-gradient(180deg,rgba(74,165,107,0.13),rgba(74,165,107,0.035));border-color:rgba(74,165,107,0.26)}
+.pl-mini-lbl{font-family:var(--font-mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim);margin-bottom:9px}
+.pl-mini.pl-recover .pl-mini-lbl{color:var(--green)}
+.pl-mini h5{font-family:var(--font-display);font-weight:700;font-size:16px;color:var(--text);margin:0 0 4px}
+.pl-mini p{font-family:var(--font-body);font-size:13px;color:var(--text-mid);margin:0;line-height:1.45}
+
+/* trust / value strip */
+.pl-strip{border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.pl-strip-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+.pl-strip-item{padding:30px 28px;border-left:1px solid var(--border)}
+.pl-strip-item:first-child{border-left:none;padding-left:0}
+.pl-strip-item .pl-label{margin-bottom:9px}
+.pl-strip-t{font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--text)}
+
+/* section shell */
+.pl-block{padding:110px 0}
+.pl-section-head{max-width:640px;margin-bottom:56px}
+.pl-section-head .pl-eyebrow{margin-bottom:18px}
+.pl-section-head h2{font-family:var(--font-display);font-weight:700;font-size:clamp(34px,3.4vw,46px);line-height:1.06;letter-spacing:-.01em;color:var(--text);margin:0 0 18px}
+.pl-section-head h2.pl-h2-sm{font-size:34px}
+.pl-section-head p{font-family:var(--font-body);font-size:18px;color:var(--text-mid);line-height:1.55;margin:0}
+
+/* how it works */
+.pl-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.pl-step{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:26px 24px 28px;transition:border-color .2s ease}
+.pl-step:hover{border-color:rgba(212,146,42,0.4)}
+.pl-step .pl-num{font-family:var(--font-mono);font-size:12px;letter-spacing:.2em;color:var(--amber)}
+.pl-step .pl-line{height:1px;background:var(--border);margin:18px 0 20px}
+.pl-step h3{font-family:var(--font-display);font-weight:700;font-size:21px;color:var(--text);margin:0 0 10px;line-height:1.15}
+.pl-step p{font-family:var(--font-body);font-size:14.5px;color:var(--text-mid);line-height:1.5;margin:0}
+
+/* features */
+.pl-features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.pl-feat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:28px;transition:border-color .2s ease,background .2s ease}
+.pl-feat:hover{border-color:rgba(212,146,42,0.4);background:var(--surface2)}
+.pl-feat.span2{grid-column:span 2;display:flex;gap:30px;align-items:flex-start}
+.pl-feat.span2 .pl-feat-body{flex:1}
+.pl-tile{width:46px;height:46px;border-radius:13px;border:1px solid rgba(212,146,42,0.4);display:inline-flex;align-items:center;justify-content:center;color:var(--amber);margin-bottom:20px;flex:none}
+.pl-tile svg{width:22px;height:22px}
+.pl-tile.green{border-color:rgba(45,158,95,0.42);color:var(--green)}
+.pl-feat.span2 .pl-tile{margin-bottom:0}
+.pl-feat .pl-label{margin-bottom:12px}
+.pl-feat h3{font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--text);margin:0 0 10px}
+.pl-feat p{font-family:var(--font-body);font-size:15px;color:var(--text-mid);line-height:1.55;margin:0}
+.pl-frog-emoji{font-size:20px}
+
+/* command surface proof */
+.pl-surface-grid{display:grid;grid-template-columns:1.18fr 0.82fr;gap:64px;align-items:center}
+.pl-callouts{display:flex;flex-direction:column;gap:4px}
+.pl-callout{padding:20px 0;border-bottom:1px solid var(--border)}
+.pl-callout:last-child{border-bottom:none}
+.pl-callout .pl-label{color:var(--amber);margin-bottom:8px}
+.pl-callout h4{font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--text);margin:0 0 6px}
+.pl-callout p{font-family:var(--font-body);font-size:14.5px;color:var(--text-mid);line-height:1.5;margin:0}
+
+/* final CTA */
+.pl-final{text-align:center;padding:130px 0 120px;position:relative}
+.pl-final::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(46% 70% at 50% 30%, rgba(212,146,42,0.10) 0%, rgba(212,146,42,0) 65%)}
+.pl-final-inner{position:relative;max-width:720px;margin:0 auto}
+.pl-final .pl-eyebrow{margin-bottom:24px}
+.pl-final h2{font-family:var(--font-display);font-weight:700;font-size:clamp(40px,4.4vw,60px);line-height:1.05;letter-spacing:-.01em;color:var(--text);margin:0 0 22px}
+.pl-final p{font-family:var(--font-body);font-size:18px;color:var(--text-mid);margin:0 0 36px}
+.pl-final .pl-btn-amber{font-size:17px;padding:17px 30px}
+
+/* footer */
+.pl-footer{border-top:1px solid var(--border);padding:40px 0}
+.pl-foot{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.pl-foot-links{display:flex;gap:26px}
+.pl-foot-links a{font-family:var(--font-body);font-size:14px;color:var(--text-mid);text-decoration:none;cursor:pointer}
+.pl-foot-links a:hover{color:var(--text)}
+.pl-foot-copy{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim)}
+
+/* Landing text warmth pass — supporting text only */
+.pl-links a,
+.pl-signin,
+.pl-mobile-menu a,
+.pl-mobile-menu button,
+.pl-hero-sub,
+.pl-trust-t,
+.pl-section-head p,
+.pl-step p,
+.pl-feat p,
+.pl-callout p,
+.pl-final p,
+.pl-foot-links a,
+.pl-foot-copy{
+  color:#a39c92;
+}
+
+/* Landing dashboard-preview supporting text */
+.pl-pv .apv-logo span,
+.pl-pv .apv-nav span,
+.pl-pv .apv-date,
+.pl-pv .apv-plan-meta,
+.pl-pv .apv-stat-val small,
+.pl-pv .apv-stat-foot,
+.pl-pv .apv-frog-ghost,
+.pl-pv .pl-mini-lbl,
+.pl-pv .pl-mini p{
+  color:#a39c92;
+}
+
+/* Landing command-surface / mini preview supporting text */
+.pl-mini p,
+.pl-momentum-pct,
+.pl-foot-copy{
+  color:#a39c92;
+}
+
+/* motion — restrained fades + short slide-ups, ease-out (MACP system) */
+.pl-reveal{opacity:0;transform:translateY(14px);transition:opacity .55s ease-out,transform .55s ease-out;transition-delay:var(--d,0ms)}
+.pl-reveal.pl-in{opacity:1;transform:none}
+.pl-dash-float.pl-reveal,.pl-dash-wide-wrap.pl-reveal{transform:translateY(22px);transition-duration:.7s}
+
+/* responsive */
+@media (max-width:1080px){
+  .pl-hero-grid{grid-template-columns:1fr;gap:56px}
+  .pl-surface-grid{grid-template-columns:1fr;gap:44px}
+  .pl-features{grid-template-columns:repeat(2,1fr)}
+  .pl-feat.span2{grid-column:span 2}
+}
+@media (max-width:820px){
+  .pl-wrap{padding:0 28px}
+  .pl-links,.pl-signin{display:none}
+  .pl-menu-toggle{display:inline-flex}
+  .pl-actions .pl-btn-amber{padding:12px 18px}
+  .pl-hero{padding:48px 0 64px}
+  .pl-h1{font-size:clamp(38px,9vw,46px)}
+  .pl-cta-row{flex-direction:column;align-items:stretch}
+  .pl-cta-row .pl-btn-amber,.pl-cta-row .pl-btn-ghost{width:100%;padding:17px 22px}
+  .pl-block{padding:72px 0}
+  .pl-strip-grid{grid-template-columns:1fr 1fr}
+  .pl-strip-item{border-left:none;padding:22px 0;border-top:1px solid var(--border)}
+  .pl-strip-item:nth-child(-n+2){border-top:none}
+  .pl-strip-item:nth-child(even){padding-left:22px;border-left:1px solid var(--border)}
+  .pl-steps{grid-template-columns:1fr;gap:14px}
+  .pl-features{grid-template-columns:1fr}
+  .pl-feat.span2{grid-column:span 1;flex-direction:column;gap:0}
+  .pl-feat.span2 .pl-tile{margin-bottom:20px}
+  .pl-dw-stats{grid-template-columns:1fr 1fr}
+  .pl-final{padding:88px 0 80px}
+  .pl-foot{flex-direction:column;align-items:flex-start}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .pl-reveal{opacity:1!important;transform:none!important;transition:none!important}
+  .pl-bar i{transform:scaleY(1)!important;transition:none!important}
+  .pl-btn-amber svg,.pl-btn-ghost svg{transition:none!important}
+}
 
 /* ── AUTH SHELL ──────────────────────────────────────────────────────────────
    Full MACP-branded auth experience. MACP owns every control (see
@@ -5688,134 +5935,9 @@ function AuthShell({
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   LANDING
+   LANDING — see src/components/PublicLanding.tsx (Project 14B public landing).
+   Rendered below as <PublicLanding/>; keeps the same { onStart, onDashboard, onAuth } props.
 ───────────────────────────────────────────────────────────────────────────── */
-function Landing({
-  onStart,
-  onDashboard = () => {},
-  onAuth,
-}: {
-  onStart: () => void;
-  onDashboard?: () => void;
-  onAuth: (mode: "sign-in" | "sign-up") => void;
-}) {
-  const { isSignedIn, userId } = useAuth(); // Checks if a user is logged in
-  const supabase = useSupabase();
-  const [ctaLoading, setCtaLoading] = useState(false);
-
-  const handleAssessmentClick = async () => {
-    if (!isSignedIn || !userId) {
-      onAuth("sign-up"); // open the MACP auth shell (sign-up intent for the primary CTA)
-      return;
-    }
-
-    setCtaLoading(true);
-    try {
-      const profile = await getMyProfile(supabase, userId);
-  
-      if (profile?.onboarding_completed) {
-        onDashboard();
-        return;
-      }
-  
-      onStart();
-    } catch (error) {
-      console.error("Failed to check profile:", error);
-      onStart();
-    } finally {
-      setCtaLoading(false);
-    }
-  };
-
-  return (
-    <div className="land">
-      {/* --- CLERK AUTHENTICATION HEADER (FIXED POSITION) --- */}
-      <header style={{ position: 'absolute', top: '8px', right: '16px', zIndex: 100 }}>
-      <SignedOut>
-        <button
-          onClick={() => onAuth("sign-in")}
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            background: "rgba(15,16,19,0.92)",
-            color: "var(--amber)",
-            border: "1px solid rgba(212,146,42,0.28)",
-            borderRadius: "var(--r)",
-            minHeight: 40,
-            padding: "0 15px",
-            fontFamily: "var(--font-body)",
-            fontSize: ".78rem",
-            fontWeight: 700,
-            letterSpacing: ".04em",
-            cursor: "pointer",
-            boxShadow: "0 0 18px rgba(212,146,42,0.12)",
-            backdropFilter: "blur(14px)",
-          }}
-        >
-          Sign In
-        </button>
-      </SignedOut>
-        <SignedIn>
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      background: "rgba(15,16,19,0.92)",
-      color: "var(--text)",
-      border: "1px solid rgba(212,146,42,0.28)",
-      borderRadius: "var(--r)",
-      padding: "6px 10px 6px 13px",
-      fontFamily: "var(--font-body)",
-      fontSize: ".78rem",
-      fontWeight: 600,
-      letterSpacing: ".04em",
-      boxShadow: "0 0 18px rgba(212,146,42,0.12)",
-      backdropFilter: "blur(14px)",
-    }}
-  >
-    <span style={{ color: "var(--amber)" }}>Account</span>
-    <UserButton
-      afterSignOutUrl="/"
-      appearance={{
-        elements: {
-          userButtonAvatarBox: {
-            width: "26px",
-            height: "26px",
-          },
-        },
-      }}
-    />
-  </div>
-</SignedIn>
-      </header>
-      {/* ------------------------------------ */}
-      <div className="land-eyebrow fu">M · A · C · P SYSTEM</div>
-      <h1 className="land-h1 fu fu1">
-        Turn your schedule<br/>into a <em>compounding</em><br/>habit machine
-      </h1>
-      <p className="land-sub fu fu2">
-        MACP ingests your real schedule, energy, and goals — then builds a personalized daily system you'll actually follow, using the best frameworks in behavioral science.
-      </p>
-      <div className="land-frameworks fu fu3">
-        {["Atomic Habits","Eat That Frog","Drive","Progressive Tiers","AI-Powered","Weekly Review","Frog Task Engine","Streak Tracking"].map(f=>(
-          <span key={f} className="fw-badge">{f}</span>
-        ))}
-      </div>
-      <button className="land-cta fu fu4" onClick={handleAssessmentClick} disabled={ctaLoading}>
-        {ctaLoading ? (
-          <><span className="land-cta-spin" />Checking your system…</>
-        ) : (
-          "Begin Your Assessment →"
-        )}
-      </button>
-      <div className="fu fu5" style={{fontFamily:"var(--font-mono)",fontSize:".62rem",letterSpacing:".1em",color:"var(--text-dim)",marginTop:8}}>
-        Takes 3 minutes · Personalized by Claude AI · No fluff
-      </div>
-    </div>
-  );
-}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    APP SHELL
@@ -6041,7 +6163,8 @@ const NAV = showAppNav
     <>
       <style>{STYLES}</style>
       <div className={`app-shell grain ${screen === "landing" ? "landing-shell" : ""}`}>
-        {/* Top bar */}
+        {/* Top bar — hidden on landing; PublicLanding ships its own sticky header */}
+        {screen !== "landing" && (
         <div className={`topbar ${["wizard", "generating"].includes(screen) ? "flow-topbar" : ""}`}>
   <div
     className="topbar-logo"
@@ -6081,11 +6204,12 @@ const NAV = showAppNav
     <div className="topbar-tag">{tierFor(profile.week || 1).label}</div>
   )}
 </div>
+        )}
 
         {/* Page */}
         <div className="page">
         {screen==="landing" && (
-  <Landing
+  <PublicLanding
     onStart={() => setScreen("wizard")}
     onDashboard={() => setScreen("dashboard")}
     onAuth={openAuth}
