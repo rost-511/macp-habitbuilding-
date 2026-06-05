@@ -75,7 +75,9 @@ export default function PublicLanding({
     const pageEl = document.querySelector(".page") as HTMLElement | null;
     const target = root.querySelector<HTMLElement>(`#${id}`);
     if (!pageEl || !target) return;
-    const headerOffset = 70; // clear the sticky header
+    // Clear the sticky header; phones use a taller gap so titles land cleanly
+    // (mobile header is shorter but the section title needs breathing room).
+    const headerOffset = window.innerWidth <= 600 ? 84 : 70;
     const top =
       target.getBoundingClientRect().top -
       pageEl.getBoundingClientRect().top +
@@ -229,10 +231,13 @@ window.addEventListener("scroll", onScroll, { passive: true });
               <button className="pl-signin" onClick={() => onAuth("sign-in")}>Sign in</button>
             </SignedOut>
             <SignedIn>
-              <UserButton
-                afterSignOutUrl="/"
-                appearance={{ elements: { userButtonAvatarBox: { width: "30px", height: "30px" } } }}
-              />
+              {/* .pl-user wrapper lets the landing header hide the avatar on mobile */}
+              <span className="pl-user">
+                <UserButton
+                  afterSignOutUrl="/"
+                  appearance={{ elements: { userButtonAvatarBox: { width: "30px", height: "30px" } } }}
+                />
+              </span>
             </SignedIn>
             <PrimaryCTA className="pl-header-cta" />
             <button
@@ -388,50 +393,74 @@ window.addEventListener("scroll", onScroll, { passive: true });
       {/* ============================ FEATURES ============================ */}
       <section className="pl-block" id="features">
         <div className="pl-wrap">
-          <div className="pl-section-head pl-reveal">
-            <div className="pl-eyebrow">What's inside the system</div>
-            <h2>A command surface for the person you're <span className="pl-accent">becoming.</span></h2>
-            <p>Five working parts, one calm surface. Amber signals what's live; green marks what's done or recovered.</p>
-          </div>
-          <div className="pl-features">
-            <div className="pl-feat pl-reveal" style={rd("0ms")}>
-              <div className="pl-tile">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5 10.1 7.6z" /><path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></svg>
-              </div>
-              <div className="pl-label">AI plans</div>
-              <h3>AI-built plans</h3>
-              <p>Personalized habit architecture based on your goals, time, and constraints — not a generic template.</p>
+          <div className="pl-feature-grid">
+            <div className="pl-section-head pl-reveal">
+              <div className="pl-eyebrow">What's inside the system</div>
+              <h2>A command surface for the person you're <span className="pl-accent">becoming.</span></h2>
+              <p>Five working parts, one calm surface. Amber signals what's live; green marks what's done or recovered.</p>
             </div>
-            <div className="pl-feat pl-reveal" style={rd("90ms")}>
-              <div className="pl-tile green"><span className="pl-frog-emoji">🐸</span></div>
-              <div className="pl-label">Daily leverage</div>
-              <h3>Today's frog</h3>
-              <p>A single high-leverage task anchors the day. Do the hardest thing first, while it still matters.</p>
-            </div>
-            <div className="pl-feat pl-reveal" style={rd("180ms")}>
-              <div className="pl-tile">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><polyline points="3 3 3 8 8 8" /><polyline points="12 7 12 12 15 14" /></svg>
-              </div>
-              <div className="pl-label">Weekly loop</div>
-              <h3>Weekly reviews</h3>
-              <p>Reflect, adjust, and keep the system realistic. Every week tunes the plan to where you actually are.</p>
-            </div>
-            <div className="pl-feat pl-reveal" style={rd("270ms")}>
-              <div className="pl-tile">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m7 14 4-4 3 3 5-6" /></svg>
-              </div>
-              <div className="pl-label">Signal</div>
-              <h3>Progress insights</h3>
-              <p>See where consistency is building and where the same friction keeps repeating — week over week.</p>
-            </div>
-            <div className="pl-feat span2 pl-reveal" style={rd("120ms")}>
-              <div className="pl-tile green">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-9 9z" /><polyline points="3 4.5 3 9 7.5 9" /><path d="m9 12 2 2 4-4" /></svg>
-              </div>
-              <div className="pl-feat-body">
-                <div className="pl-label">On track</div>
-                <h3>Recovery when life happens</h3>
-                <p>Miss a day? Resume without shame. MACP adjusts the plan instead of restarting you from zero — so one bad week never breaks the system.</p>
+
+            {/* The five real working parts of MACP, shown as premium stacked
+                modules (NOT a fake app screen). This is the main feature visual. */}
+            <div className="pl-modules-wrap pl-reveal">
+              <div className="pl-modules" role="img" aria-label="The five MACP system modules: AI Plan, Today's Frog, Weekly Review, Recovery, and Progress History">
+                <div className="pl-modules-cap">
+                  <span className="pl-modules-cap-lbl">The MACP system</span>
+                  <span className="pl-modules-cap-meta">5 connected modules</span>
+                </div>
+
+                <div className="pl-module">
+                  <div className="pl-module-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5 10.1 7.6z" /><path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></svg>
+                  </div>
+                  <div className="pl-module-main">
+                    <div className="pl-module-name">AI Plan</div>
+                    <div className="pl-module-desc">Personalized habits, tiers and milestones, generated from your goals.</div>
+                  </div>
+                  <div className="pl-module-tag">Generate</div>
+                </div>
+
+                <div className="pl-module green">
+                  <div className="pl-module-icon"><span className="pl-frog-emoji">🐸</span></div>
+                  <div className="pl-module-main">
+                    <div className="pl-module-name">Today's Frog</div>
+                    <div className="pl-module-desc">Your single highest-leverage action, prioritized for the day.</div>
+                  </div>
+                  <div className="pl-module-tag">Daily</div>
+                </div>
+
+                <div className="pl-module">
+                  <div className="pl-module-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><polyline points="3 3 3 8 8 8" /><polyline points="12 7 12 12 15 14" /></svg>
+                  </div>
+                  <div className="pl-module-main">
+                    <div className="pl-module-name">Weekly Review</div>
+                    <div className="pl-module-desc">Reflect, score the week, and re-tune the plan on schedule.</div>
+                  </div>
+                  <div className="pl-module-tag">Weekly</div>
+                </div>
+
+                <div className="pl-module green">
+                  <div className="pl-module-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-9 9z" /><polyline points="3 4.5 3 9 7.5 9" /><path d="m9 12 2 2 4-4" /></svg>
+                  </div>
+                  <div className="pl-module-main">
+                    <div className="pl-module-name">Recovery</div>
+                    <div className="pl-module-desc">Miss a day and the plan rebalances — resume without restarting.</div>
+                  </div>
+                  <div className="pl-module-tag">Adaptive</div>
+                </div>
+
+                <div className="pl-module">
+                  <div className="pl-module-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m7 14 4-4 3 3 5-6" /></svg>
+                  </div>
+                  <div className="pl-module-main">
+                    <div className="pl-module-name">Progress History</div>
+                    <div className="pl-module-desc">Streaks, consistency and momentum tracked over time.</div>
+                  </div>
+                  <div className="pl-module-tag">Trend</div>
+                </div>
               </div>
             </div>
           </div>
@@ -442,76 +471,10 @@ window.addEventListener("scroll", onScroll, { passive: true });
       <section className="pl-block" id="progress">
         <div className="pl-wrap">
           <div className="pl-surface-grid">
-            <div className="pl-dash-wide-wrap pl-reveal">
-              <div className="pl-pv pl-pv-wide">
-                <div className="auth-pv" role="img" aria-label="MACP weekly review preview">
-                  <div className="apv-bar">
-                    <div className="apv-logo">MACP<span> system</span></div>
-                    <div className="apv-nav">
-                      <span>DASHBOARD</span><span className="on">WEEKLY REVIEW</span><span>CALENDAR</span>
-                    </div>
-                  </div>
-                  <div className="apv-body">
-                    <div className="apv-greetrow">
-                      <div>
-                        <div className="apv-greet">Week 4 · <em>Foundation</em></div>
-                        <div className="apv-date">MAY 25 – JUN 1, 2026</div>
-                      </div>
-                      <div className="apv-tier"><span />ON TRACK</div>
-                    </div>
-                    <div className="pl-dw-stats">
-                      <div className="apv-stat">
-                        <div className="apv-stat-lbl">Consistency</div>
-                        <div className="apv-stat-val"><span data-count>84</span><small> %</small></div>
-                        <div className="apv-stat-foot g">Building</div>
-                      </div>
-                      <div className="apv-stat">
-                        <div className="apv-stat-lbl">Streak</div>
-                        <div className="apv-stat-val"><span data-count>6</span><small> days</small></div>
-                        <div className="apv-stat-foot a">Live</div>
-                      </div>
-                      <div className="apv-stat">
-                        <div className="apv-stat-lbl">Habits</div>
-                        <div className="apv-stat-val"><span data-count>28</span><small> /35</small></div>
-                        <div className="apv-stat-foot">This week</div>
-                      </div>
-                      <div className="apv-stat">
-                        <div className="apv-stat-lbl">Recovered</div>
-                        <div className="apv-stat-val"><span data-count>2</span><small> days</small></div>
-                        <div className="apv-stat-foot g">Resumed</div>
-                      </div>
-                    </div>
-                    <div className="pl-momentum">
-                      <div className="pl-momentum-head">
-                        <span className="pl-momentum-lbl">Weekly momentum</span>
-                        <span className="pl-momentum-pct">+12% vs last</span>
-                      </div>
-                      <div className="pl-bars">
-                        <div className="pl-bar"><i style={{ height: "62%" }} /></div>
-                        <div className="pl-bar green"><i style={{ height: "80%" }} /></div>
-                        <div className="pl-bar"><i style={{ height: "54%" }} /></div>
-                        <div className="pl-bar miss"><i style={{ height: "22%" }} /></div>
-                        <div className="pl-bar green"><i style={{ height: "74%" }} /></div>
-                        <div className="pl-bar green"><i style={{ height: "88%" }} /></div>
-                        <div className="pl-bar"><i style={{ height: "70%" }} /></div>
-                      </div>
-                    </div>
-                    <div className="pl-dw-row">
-                      <div className="pl-mini">
-                        <div className="pl-mini-lbl">Next review</div>
-                        <h5>Sunday, 6:00 PM</h5>
-                        <p>Adjust tier, set next week's focus.</p>
-                      </div>
-                      <div className="pl-mini pl-recover">
-                        <div className="pl-mini-lbl">Recovery signal</div>
-                        <h5>Back on track</h5>
-                        <p>Missed Thursday — plan rebalanced, no reset.</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Reserved visual slot for a future product preview — intentionally
+                minimal dark space with a soft glow (no fake dashboard, no
+                placeholder text). Hidden on mobile so it never leaves a blank gap. */}
+            <div className="pl-future-slot pl-reveal" aria-hidden="true" />
 
             <div className="pl-callouts">
               <div className="pl-section-head pl-reveal" style={{ marginBottom: 14 }}>

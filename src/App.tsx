@@ -214,6 +214,7 @@ background-repeat:no-repeat;
 .pl-links a{font-family:var(--font-body);font-size:15px;color:var(--text-mid);text-decoration:none;cursor:pointer;transition:color .16s ease}
 .pl-links a:hover{color:var(--text)}
 .pl-actions{display:flex;align-items:center;gap:18px}
+.pl-user{display:inline-flex;align-items:center}
 .pl-signin{font-family:var(--font-body);font-size:15px;color:var(--text-mid);background:none;border:none;text-decoration:none;cursor:pointer;transition:color .16s ease}
 .pl-signin:hover{color:var(--text)}
 .pl-header-cta{padding:11px 20px;font-size:15px}
@@ -313,7 +314,7 @@ background-repeat:no-repeat;
 
 /* features */
 .pl-features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-.pl-feat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:28px;transition:border-color .2s ease,background .2s ease}
+.pl-feat{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:28px;transition:border-color .2s ease,background .2s ease}
 .pl-feat:hover{border-color:rgba(212,146,42,0.4);background:var(--surface2)}
 .pl-feat.span2{grid-column:span 2;display:flex;gap:30px;align-items:flex-start}
 .pl-feat.span2 .pl-feat-body{flex:1}
@@ -325,6 +326,14 @@ background-repeat:no-repeat;
 .pl-feat h3{font-family:var(--font-display);font-weight:700;font-size:22px;color:var(--text);margin:0 0 10px}
 .pl-feat p{font-family:var(--font-body);font-size:15px;color:var(--text-mid);line-height:1.55;margin:0}
 .pl-frog-emoji{font-size:20px}
+/* Feature-card expand chevron — hidden on desktop (cards are always open there),
+   revealed + interactive on mobile via the "Landing mobile final polish" block. */
+.pl-feat-chev{display:none;position:absolute;top:24px;right:22px;width:34px;height:34px;
+  align-items:center;justify-content:center;padding:0;cursor:pointer;
+  background:rgba(226,162,58,0.07);border:1px solid var(--border);border-radius:10px;
+  color:var(--pl-amber-bright);transition:transform .26s ease,background .2s ease,border-color .2s ease}
+.pl-feat-chev svg{width:18px;height:18px}
+.pl-feat-chev:hover{background:rgba(226,162,58,0.12);border-color:rgba(226,162,58,0.4)}
 
 /* command surface proof */
 .pl-surface-grid{display:grid;grid-template-columns:1.18fr 0.82fr;gap:64px;align-items:center}
@@ -334,6 +343,70 @@ background-repeat:no-repeat;
 .pl-callout .pl-label{color:var(--amber);margin-bottom:8px}
 .pl-callout h4{font-family:var(--font-display);font-weight:700;font-size:19px;color:var(--text);margin:0 0 6px}
 .pl-callout p{font-family:var(--font-body);font-size:14.5px;color:var(--text-mid);line-height:1.5;margin:0}
+
+/* command surface — "system modules" visual (premium stacked modules, NOT a
+   fake app screen). Replaces the old weekly-review dashboard mock. */
+.pl-modules-wrap{position:relative}
+.pl-modules{
+  position:relative;display:flex;flex-direction:column;gap:10px;
+  padding:18px;border-radius:var(--r2);
+  background:rgba(22,18,13,0.42);
+  -webkit-backdrop-filter:blur(20px) saturate(1.2);
+  backdrop-filter:blur(20px) saturate(1.2);
+  border:1px solid rgba(226,162,58,0.10);
+  box-shadow:
+    0 34px 90px -34px rgba(0,0,0,0.78),
+    0 0 0 1px rgba(226,162,58,0.04),
+    0 0 58px rgba(226,162,58,0.05);
+}
+.pl-modules-cap{display:flex;align-items:baseline;justify-content:space-between;
+  padding:6px 6px 12px;margin-bottom:2px;border-bottom:1px solid var(--border)}
+.pl-modules-cap-lbl{font-family:var(--font-mono);font-size:11px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--pl-amber-bright)}
+.pl-modules-cap-meta{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.14em;
+  text-transform:uppercase;color:#a39c92}
+.pl-module{
+  position:relative;display:flex;align-items:center;gap:15px;
+  padding:16px 18px;border-radius:14px;
+  background:rgba(18,14,10,0.5);
+  border:1px solid rgba(240,236,227,0.06);
+  border-left:2px solid rgba(226,162,58,0.55);
+  transition:border-color .2s ease,background .2s ease,transform .2s ease;
+}
+.pl-module.green{border-left-color:rgba(74,165,107,0.6)}
+.pl-module:hover{transform:translateX(2px);background:rgba(24,19,13,0.6);border-color:rgba(226,162,58,0.22);border-left-color:rgba(226,162,58,0.8)}
+.pl-module.green:hover{border-color:rgba(74,165,107,0.3);border-left-color:rgba(74,165,107,0.85)}
+.pl-module-icon{width:42px;height:42px;border-radius:12px;flex:none;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid rgba(226,162,58,0.4);color:var(--pl-amber-bright);background:rgba(226,162,58,0.06)}
+.pl-module.green .pl-module-icon{border-color:rgba(74,165,107,0.45);color:var(--green);background:rgba(74,165,107,0.07)}
+.pl-module-icon svg{width:21px;height:21px}
+.pl-module-icon .pl-frog-emoji{font-size:20px}
+.pl-module-main{flex:1;min-width:0}
+.pl-module-name{font-family:var(--font-display);font-weight:700;font-size:17px;
+  color:var(--pl-text-cream);line-height:1.2;margin-bottom:4px}
+.pl-module-desc{font-family:var(--font-body);font-size:13.5px;color:#a39c92;line-height:1.45}
+.pl-module-tag{flex:none;align-self:flex-start;
+  font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--pl-amber-bright);border:1px solid rgba(226,162,58,0.28);border-radius:999px;padding:5px 11px}
+.pl-module.green .pl-module-tag{color:var(--green);border-color:rgba(74,165,107,0.32)}
+
+/* features section — intro text + the modules visual as the main feature explainer */
+.pl-feature-grid{display:grid;grid-template-columns:0.82fr 1.18fr;gap:60px;align-items:center}
+.pl-feature-grid .pl-section-head{margin-bottom:0;max-width:430px}
+
+/* command-surface — reserved (future preview) visual slot: clean dark space + soft
+   glow, intentionally minimal. No fake screen, no placeholder text. */
+.pl-future-slot{
+  position:relative;min-height:360px;border-radius:var(--r2);
+  border:1px solid rgba(240,236,227,0.05);
+  background:
+    radial-gradient(55% 46% at 50% 42%, rgba(226,162,58,0.055) 0%, rgba(226,162,58,0) 72%),
+    linear-gradient(180deg, rgba(22,18,13,0.34) 0%, rgba(10,8,6,0.34) 100%);
+  -webkit-backdrop-filter:blur(8px);
+  backdrop-filter:blur(8px);
+  box-shadow:inset 0 0 60px rgba(226,162,58,0.03);
+}
 
 /* final CTA */
 .pl-final{text-align:center;padding:130px 0 120px;position:relative}
@@ -610,6 +683,10 @@ background-repeat:no-repeat;
 @media (max-width:1080px){
   .pl-hero-grid{grid-template-columns:1fr;gap:56px}
   .pl-surface-grid{grid-template-columns:1fr;gap:44px}
+  .pl-feature-grid{grid-template-columns:1fr;gap:40px}
+  /* Reserved preview slot is desktop-only — drop it so the progress section is
+     just its text on mobile/tablet (no awkward empty box or blank gap). */
+  .pl-future-slot{display:none}
   .pl-features{grid-template-columns:repeat(2,1fr)}
   .pl-feat.span2{grid-column:span 2}
 }
@@ -620,8 +697,8 @@ background-repeat:no-repeat;
   .pl-actions .pl-btn-amber{padding:12px 18px}
   .pl-hero{padding:48px 0 64px}
   .pl-h1{font-size:clamp(38px,9vw,46px)}
-  .pl-cta-row{flex-direction:column;align-items:stretch}
-  .pl-cta-row .pl-btn-amber,.pl-cta-row .pl-btn-ghost{width:100%;padding:17px 22px}
+  .pl-cta-row{flex-direction:column;align-items:center}
+  .pl-cta-row .pl-btn-amber,.pl-cta-row .pl-btn-ghost{width:100%;max-width:280px;padding:16px 22px}
   .pl-block{padding:72px 0}
   .pl-strip-grid{grid-template-columns:1fr 1fr}
   .pl-strip-item{border-left:none;padding:22px 0;border-top:1px solid var(--border)}
@@ -636,10 +713,109 @@ background-repeat:no-repeat;
   .pl-foot{flex-direction:column;align-items:flex-start}
 }
 
+/* Landing mobile final polish ──────────────────────────────────────────────
+   Phone-only refinements: calmer header, an intentionally-mobile (lower-density)
+   dashboard preview, clean anchor landings under the sticky header, and tighter
+   vertical rhythm. CSS-only and scoped to .pl-* (incl. the landing .pl-pv
+   previews) — desktop layout and the shared AuthShell preview are untouched. */
+@media (max-width:600px){
+  /* Header — shorter and less crowded, no horizontal overflow */
+  .pl-wrap{padding:0 20px}
+  .pl-nav{height:60px}
+  .pl-actions{gap:10px}
+  .pl-mobile-menu{top:60px;padding:8px 20px 16px}
+  .pl-user{display:none}                         /* account lives on the dashboard */
+  .pl-actions .pl-header-cta{padding:11px 15px;font-size:14px}
+
+  /* Hero rhythm — avoid a yawning gap between copy and the preview */
+  .pl-hero{padding:40px 0 52px}
+  .pl-hero-grid{gap:32px}
+  .pl-h1{margin-bottom:18px}
+  .pl-hero-sub{font-size:17px;margin-bottom:28px}
+  /* Hero bullets — centered group, amber dot on BOTH sides of each line:
+     • BUILT AROUND DAILY EXECUTION •   (mono uppercase preserved) */
+  .pl-trust{flex-direction:column;align-items:center;gap:12px;margin-top:30px}
+  .pl-trust-item{justify-content:center;gap:10px}
+  .pl-trust-t{text-align:center}
+  .pl-trust-item::after{content:"";width:6px;height:6px;border-radius:50%;flex:none;
+    background:var(--pl-amber-bright);box-shadow:0 0 10px rgba(226,162,58,0.28)}
+
+  /* Dashboard previews — intentionally mobile: lower density, less wrapping.
+     Scoped to .pl-pv so the AuthShell's own apv-* preview is unaffected. */
+  .pl-pv .apv-nav{display:none}                   /* drop the desktop tab row */
+  .pl-pv .apv-bar{padding:12px 14px}
+  .pl-pv .apv-body{padding:14px}
+  .pl-pv .apv-greetrow{margin-bottom:14px}
+  .pl-pv .apv-greet{font-size:19px}
+  .pl-pv .apv-tier{padding:6px 9px}
+  .pl-pv .apv-plan{padding:14px;margin-bottom:10px}
+  .pl-pv .apv-plan-name{font-size:16px}
+  .pl-pv .apv-stats{gap:8px;margin-bottom:10px}
+  .pl-pv .apv-stat{padding:11px 10px}
+  .pl-pv .apv-stat-lbl{margin-bottom:8px}
+  .pl-pv .apv-stat-val{font-size:23px}
+  .pl-pv .apv-stat-val small{font-size:11px}
+  .pl-pv .apv-frog{padding:14px}
+  .pl-pv .apv-frog-name{font-size:15px}
+  .pl-pv .apv-frog-row{flex-wrap:wrap}
+  /* command-surface "system modules" visual — compact, clean stack on phones */
+  .pl-modules{padding:14px;gap:8px}
+  .pl-modules-cap{padding:4px 4px 10px}
+  .pl-module{padding:13px 14px;gap:12px}
+  .pl-module-icon{width:38px;height:38px}
+  .pl-module-icon svg{width:19px;height:19px}
+  .pl-module-name{font-size:15.5px}
+  .pl-module-desc{font-size:13px}
+  .pl-module-tag{font-size:9px;padding:4px 9px}
+
+  /* Section rhythm + clean anchor landing under the sticky header */
+  .pl-block{padding:60px 0;scroll-margin-top:84px}
+  .pl-section-head{margin-bottom:36px}
+
+  /* Numbered process strip (01 Generate … 04 Recover) — drop it on phones */
+  .pl-strip{display:none}
+
+  /* "What's inside the system" cards → compact tap-to-expand rows.
+     Collapsed = a thin premium row (icon left · title middle · chevron right,
+     ~78–82px tall); the body text opens below inside the same card. */
+  /* Keep the CARD itself permanently visible: the scroll-reveal (pl-reveal/pl-in)
+     must never re-hide it. Open state is a data-attr so React never rewrites the
+     className, but this is the belt-and-suspenders guard so the card never fades. */
+  .pl-feat,
+  .pl-feat.pl-reveal,
+  .pl-feat.pl-in{opacity:1!important;visibility:visible!important;transform:none!important}
+  /* header row: icon · title · (absolute chevron); body wraps to its own line below */
+  .pl-feat{display:flex;flex-wrap:wrap;align-items:center;column-gap:13px;row-gap:0;
+    cursor:pointer;padding:18px 52px 18px 18px}
+  .pl-feat.span2{align-items:flex-start}            /* long title wraps; keep icon top-aligned */
+  .pl-feat .pl-label{display:none}                  /* drop eyebrow → keeps the row thin */
+  .pl-feat .pl-tile{width:42px;height:42px;margin:0;flex:none}
+  .pl-feat .pl-tile svg{width:20px;height:20px}
+  .pl-feat h3{flex:1;min-width:0;margin:0;font-size:17px;line-height:1.28}
+  .pl-feat.span2 .pl-feat-body{flex:1;min-width:0}
+  /* chevron pinned to the header row, aligned with the icon */
+  .pl-feat-chev{display:inline-flex;top:21px;right:14px}
+  /* Only the body animates (max-height + opacity + margin) — never the card.
+     flex-basis:100% drops it onto its own line beneath the header row. */
+  .pl-feat p{flex-basis:100%;max-height:0;margin-top:0;opacity:0;overflow:hidden;
+    transition:max-height .3s ease,opacity .26s ease,margin-top .3s ease}
+  .pl-feat[data-open] p{max-height:320px;margin-top:12px;opacity:1}
+  .pl-feat[data-open] .pl-feat-chev{transform:rotate(180deg);background:rgba(226,162,58,0.13)}
+}
+
+/* Tightest phones (≤420px) — keep the header on one calm line */
+@media (max-width:420px){
+  .pl-wrap{padding:0 16px}
+  .pl-header .pl-wordmark .sy{display:none}       /* keep MACP; drop the tag */
+  .pl-actions .pl-header-cta svg{display:none}
+  .pl-actions .pl-header-cta{padding:10px 13px;font-size:13.5px}
+}
+
 @media (prefers-reduced-motion: reduce){
   .pl-reveal{opacity:1!important;transform:none!important;transition:none!important}
   .pl-bar i{transform:scaleY(1)!important;transition:none!important}
   .pl-btn-amber svg,.pl-btn-ghost svg{transition:none!important}
+  .pl-feat p,.pl-feat-chev{transition:none!important}
 }
 
 /* ── AUTH SHELL ──────────────────────────────────────────────────────────────
