@@ -4,6 +4,7 @@ import { useSupabase } from "./lib/useSupabase";
 import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
 import PublicLanding from "./components/PublicLanding";
+import TrustPage, { type TrustPageKey } from "./components/TrustPage";
 import { buildPlanPrompt, buildReviewPrompt, PLAN_PROMPT_VERSION, REVIEW_PROMPT_VERSION, buildRecoveryPrompt, RECOVERY_PROMPT_VERSION } from "./lib/prompts";
 import { PLAN_MODES, normalizePlanMode } from "./lib/planModes";
 import {
@@ -417,13 +418,44 @@ background-repeat:no-repeat;
 .pl-final p{font-family:var(--font-body);font-size:18px;color:var(--text-mid);margin:0 0 36px}
 .pl-final .pl-btn-amber{font-size:17px;padding:17px 30px}
 
-/* footer */
-.pl-footer{border-top:1px solid var(--border);padding:40px 0}
-.pl-foot{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
-.pl-foot-links{display:flex;gap:26px}
-.pl-foot-links a{font-family:var(--font-body);font-size:14px;color:var(--text-mid);text-decoration:none;cursor:pointer}
-.pl-foot-links a:hover{color:var(--text)}
-.pl-foot-copy{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim)}
+/* footer — two-row premium structure (Project 14C) */
+.pl-footer{border-top:1px solid var(--border);padding:0}
+/* top row: wordmark · main nav · tagline */
+.pl-foot-top{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:20px;flex-wrap:wrap;padding:32px 0 24px;
+  border-bottom:1px solid rgba(240,236,227,0.05)
+}
+.pl-foot-nav{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
+.pl-foot-nav a{
+  font-family:var(--font-body);font-size:14px;color:#a39c92;
+  text-decoration:none;cursor:pointer;transition:color .16s ease
+}
+.pl-foot-nav a:hover{color:var(--text)}
+.pl-foot-tagline{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--text-dim);white-space:nowrap
+}
+/* bottom row: copyright · trust links · AI note */
+.pl-foot-bottom{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:16px;flex-wrap:wrap;padding:16px 0 36px
+}
+.pl-foot-copy{
+  font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--text-dim);white-space:nowrap
+}
+.pl-foot-trust{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.pl-foot-trust a{
+  font-family:var(--font-body);font-size:12.5px;color:var(--text-dim);
+  text-decoration:none;cursor:pointer;transition:color .16s ease
+}
+.pl-foot-trust a:hover{color:#a39c92}
+.pl-foot-note{
+  font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;color:rgba(163,156,146,0.38);
+  text-align:right
+}
 
 /* Landing color polish — creamy headlines + brighter amber */
 .pl-root{
@@ -649,7 +681,8 @@ background-repeat:no-repeat;
 .pl-feat p,
 .pl-callout p,
 .pl-final p,
-.pl-foot-links a,
+.pl-foot-nav a,
+.pl-foot-tagline,
 .pl-foot-copy{
   color:#a39c92;
 }
@@ -669,8 +702,7 @@ background-repeat:no-repeat;
 
 /* Landing command-surface / mini preview supporting text */
 .pl-mini p,
-.pl-momentum-pct,
-.pl-foot-copy{
+.pl-momentum-pct{
   color:#a39c92;
 }
 
@@ -710,7 +742,10 @@ background-repeat:no-repeat;
   .pl-feat.span2 .pl-tile{margin-bottom:20px}
   .pl-dw-stats{grid-template-columns:1fr 1fr}
   .pl-final{padding:88px 0 80px}
-  .pl-foot{flex-direction:column;align-items:flex-start}
+  /* footer: stack both rows cleanly — logo · nav · trust · copy/note */
+  .pl-foot-top{flex-direction:column;align-items:flex-start;gap:14px;padding:28px 0 20px}
+  .pl-foot-bottom{flex-direction:column;align-items:flex-start;gap:10px;padding:14px 0 32px}
+  .pl-foot-note{text-align:left}
 }
 
 /* Landing mobile final polish ──────────────────────────────────────────────
@@ -816,6 +851,77 @@ background-repeat:no-repeat;
   .pl-bar i{transform:scaleY(1)!important;transition:none!important}
   .pl-btn-amber svg,.pl-btn-ghost svg{transition:none!important}
   .pl-feat p,.pl-feat-chev{transition:none!important}
+}
+
+/* ── Trust / legal pages (Project 14C) ───────────────────────────────────────
+   Public Privacy / Terms / Support / AI Disclaimer pages. Own header + footer,
+   warm-black MACP styling. tp-* namespace; reuses .pl-wordmark for the mark. */
+.tp-root{
+  position:relative;min-height:100%;
+  font-family:var(--font-body);color:var(--text);
+  --tp-cream:#efe7dc;--tp-amber:#e2a23a;
+  background:
+    radial-gradient(60% 40% at 92% -4%, rgba(226,162,58,0.08) 0%, rgba(226,162,58,0) 60%),
+    linear-gradient(180deg,#0f0a05 0%,#0a0704 48%,#060403 100%);
+  background-repeat:no-repeat;
+}
+.tp-wrap{width:100%;max-width:820px;margin:0 auto;padding:0 40px}
+.tp-header{position:sticky;top:0;z-index:6;
+  background:rgba(7,8,10,0.6);-webkit-backdrop-filter:blur(14px) saturate(1.2);backdrop-filter:blur(14px) saturate(1.2);
+  border-bottom:1px solid rgba(240,236,227,0.08)}
+.tp-header-inner{display:flex;align-items:center;justify-content:space-between;height:66px}
+.tp-back{display:inline-flex;align-items:center;gap:7px;background:none;border:none;cursor:pointer;
+  font-family:var(--font-body);font-size:14px;color:var(--text-mid);transition:color .16s ease}
+.tp-back:hover{color:var(--text)}
+.tp-back svg{width:16px;height:16px}
+
+.tp-main{padding:54px 0 0}
+.tp-eyebrow{font-family:var(--font-mono);font-weight:500;font-size:12px;text-transform:uppercase;
+  letter-spacing:.3em;color:var(--tp-amber);text-shadow:0 0 18px rgba(226,162,58,0.24);margin-bottom:18px}
+.tp-title{font-family:var(--font-display);font-weight:700;font-size:clamp(34px,5vw,48px);
+  line-height:1.05;letter-spacing:-.01em;color:var(--tp-cream);margin:0 0 14px}
+.tp-updated{font-family:var(--font-mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--text-dim);margin-bottom:20px}
+.tp-intro{font-family:var(--font-body);font-size:17px;line-height:1.6;color:#a39c92;max-width:660px;margin:0}
+
+.tp-note{margin:26px 0 4px;padding:18px 20px;border-radius:var(--r2);
+  border:1px solid rgba(226,162,58,0.28);
+  background:linear-gradient(180deg,rgba(226,162,58,0.085),rgba(226,162,58,0.02));
+  display:flex;gap:13px;align-items:flex-start}
+.tp-note svg{width:20px;height:20px;color:var(--tp-amber);flex:none;margin-top:1px}
+.tp-note p{margin:0;font-size:14.5px;line-height:1.55;color:#cfc6ba}
+.tp-note strong{color:var(--tp-cream);font-weight:600}
+
+.tp-sections{margin-top:16px}
+.tp-section{padding:26px 0;border-top:1px solid var(--border)}
+.tp-section:first-child{border-top:none}
+.tp-h2{font-family:var(--font-display);font-weight:700;font-size:21px;color:var(--tp-cream);margin:0 0 12px;line-height:1.2}
+.tp-body{font-family:var(--font-body);font-size:15.5px;line-height:1.65;color:#a39c92}
+.tp-body p{margin:0 0 12px}
+.tp-body p:last-child{margin-bottom:0}
+.tp-body strong{color:#cfc6ba;font-weight:600}
+.tp-body a{color:var(--tp-amber);text-decoration:none;border-bottom:1px solid rgba(226,162,58,0.3);transition:border-color .16s ease}
+.tp-body a:hover{border-bottom-color:var(--tp-amber)}
+.tp-body ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.tp-body li{position:relative;padding-left:20px}
+.tp-body li::before{content:"";position:absolute;left:2px;top:9px;width:6px;height:6px;border-radius:50%;background:var(--tp-amber)}
+.tp-placeholder{font-family:var(--font-mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim)}
+
+.tp-foot{border-top:1px solid var(--border);margin-top:34px;padding:26px 0 44px;
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px}
+.tp-foot-links{display:flex;flex-wrap:wrap;gap:22px}
+.tp-foot-links a{font-family:var(--font-body);font-size:13.5px;color:var(--text-mid);cursor:pointer;text-decoration:none;transition:color .16s ease}
+.tp-foot-links a:hover{color:var(--text)}
+.tp-foot-links a.on{color:var(--tp-amber);cursor:default}
+.tp-foot-home{font-family:var(--font-body);font-size:13.5px;color:var(--text-mid);background:none;border:none;cursor:pointer;transition:color .16s ease}
+.tp-foot-home:hover{color:var(--text)}
+
+@media (max-width:600px){
+  .tp-wrap{padding:0 22px}
+  .tp-header-inner{height:58px}
+  .tp-back span{display:none}
+  .tp-main{padding:36px 0 0}
+  .tp-intro{font-size:16px}
+  .tp-foot{flex-direction:column;align-items:flex-start;gap:14px}
 }
 
 /* ── AUTH SHELL ──────────────────────────────────────────────────────────────
@@ -6345,6 +6451,10 @@ function AuthShell({
 ───────────────────────────────────────────────────────────────────────────── */
 export default function App() {
   const [screen, setScreen] = useState("landing");
+  // Public trust pages (Project 14C) — own-header views, no app topbar, like the landing.
+  const TRUST_SCREENS = ["privacy", "terms", "support", "ai-disclaimer"];
+  const isTrustScreen = TRUST_SCREENS.includes(screen);
+  const isPublicScreen = screen === "landing" || isTrustScreen;
 const [profile, setProfile] = useState<any>(null);
 const [plan, setPlan] = useState<any>(null);
 const [booting, setBooting] = useState(true);
@@ -6563,9 +6673,9 @@ const NAV = showAppNav
   return (
     <>
       <style>{STYLES}</style>
-      <div className={`app-shell grain ${screen === "landing" ? "landing-shell" : ""}`}>
-        {/* Top bar — hidden on landing; PublicLanding ships its own sticky header */}
-        {screen !== "landing" && (
+      <div className={`app-shell grain ${isPublicScreen ? "landing-shell" : ""}`}>
+        {/* Top bar — hidden on public pages (landing + trust pages ship their own header) */}
+        {!isPublicScreen && (
         <div className={`topbar ${["wizard", "generating"].includes(screen) ? "flow-topbar" : ""}`}>
   <div
     className="topbar-logo"
@@ -6614,6 +6724,14 @@ const NAV = showAppNav
     onStart={() => setScreen("wizard")}
     onDashboard={() => setScreen("dashboard")}
     onAuth={openAuth}
+    onTrust={(p: TrustPageKey) => setScreen(p)}
+  />
+)}
+        {isTrustScreen && (
+  <TrustPage
+    page={screen as TrustPageKey}
+    onHome={() => setScreen("landing")}
+    onTrust={(p) => setScreen(p)}
   />
 )}
                     {screen === "wizard" && (

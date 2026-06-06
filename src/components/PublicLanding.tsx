@@ -29,10 +29,12 @@ export default function PublicLanding({
   onStart,
   onDashboard = () => {},
   onAuth,
+  onTrust = () => {},
 }: {
   onStart: () => void;
   onDashboard?: () => void;
   onAuth: (mode: "sign-in" | "sign-up") => void;
+  onTrust?: (page: "privacy" | "terms" | "support" | "ai-disclaimer") => void;
 }) {
   const { isSignedIn, userId } = useAuth();
   const supabase = useSupabase();
@@ -504,15 +506,27 @@ window.addEventListener("scroll", onScroll, { passive: true });
 
       {/* ============================ FOOTER ============================ */}
       <footer className="pl-footer">
-        <div className="pl-wrap pl-foot">
+        {/* top row — wordmark · nav · tagline */}
+        <div className="pl-wrap pl-foot-top">
           <Wordmark mk="20px" sy="9px" />
-          <div className="pl-foot-links">
+          <nav className="pl-foot-nav">
             <a onClick={() => scrollToSection("how")}>How it works</a>
             <a onClick={() => scrollToSection("features")}>Features</a>
             <a onClick={() => scrollToSection("progress")}>Progress</a>
             <SignedOut><a onClick={() => onAuth("sign-in")}>Sign in</a></SignedOut>
+          </nav>
+          <span className="pl-foot-tagline">Build a system that compounds</span>
+        </div>
+        {/* bottom row — copyright · trust links · AI note */}
+        <div className="pl-wrap pl-foot-bottom">
+          <span className="pl-foot-copy">© 2026 MACP</span>
+          <div className="pl-foot-trust">
+            <a onClick={() => onTrust("privacy")}>Privacy</a>
+            <a onClick={() => onTrust("terms")}>Terms</a>
+            <a onClick={() => onTrust("support")}>Support</a>
+            <a onClick={() => onTrust("ai-disclaimer")}>AI Disclaimer</a>
           </div>
-          <div className="pl-foot-copy">Build a system that compounds</div>
+          <span className="pl-foot-note">AI habit guidance only. Not professional advice.</span>
         </div>
       </footer>
     </div>
