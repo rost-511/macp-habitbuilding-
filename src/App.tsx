@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { SignedIn, SignedOut, UserButton, useAuth, useSignIn, useSignUp, useClerk, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
+import { SignedIn, SignedOut, useAuth, useSignIn, useSignUp, useClerk, AuthenticateWithRedirectCallback } from "@clerk/clerk-react";
 import { useSupabase } from "./lib/useSupabase";
 import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
 import PublicLanding from "./components/PublicLanding";
 import TrustPage, { type TrustPageKey } from "./components/TrustPage";
-import { buildPlanPrompt, buildReviewPrompt, PLAN_PROMPT_VERSION, REVIEW_PROMPT_VERSION, buildRecoveryPrompt, RECOVERY_PROMPT_VERSION } from "./lib/prompts";
-import { PLAN_MODES, normalizePlanMode } from "./lib/planModes";
+import { buildPlanPrompt, PLAN_PROMPT_VERSION } from "./lib/prompts";
+import { normalizePlanMode } from "./lib/planModes";
 import {
   getMyProfile,
   completeOnboarding,
@@ -21,9 +21,7 @@ import {
   getWeeklyReviews,
 } from "./lib/userData";
 import { STYLES } from "./styles/appStyles";
-import { GOALS, HABITS_CATS, WORKOUTS, SITUATIONS, ENERGY_LEVELS, DAY_ABBRS, STEPS, REVIEW_SECTION_HEADERS } from "./lib/constants";
-import { tierFor, pickSmartNudge, makeHabits, makeTimeline, nowMinutes, timeToMin, todayLabel, fmtSecs, parseInsightSections } from "./lib/helpers";
-import { ProgressRing } from "./components/app/ProgressRing";
+import { tierFor, fmtSecs, parseInsightSections } from "./lib/helpers";
 import { MacpLoader } from "./components/app/MacpLoader";
 import { Wizard } from "./components/app/Wizard";
 import { CalendarPage } from "./components/app/CalendarPage";
