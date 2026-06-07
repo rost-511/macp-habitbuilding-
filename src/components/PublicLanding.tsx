@@ -25,6 +25,31 @@ const ChevronDown = () => (
   </svg>
 );
 
+/* Footer column. Static open column on desktop; on mobile the heading becomes a
+   tappable accordion row (CSS handles the show/hide + chevron rotation purely
+   from aria-expanded, so desktop ignores `open` entirely). Defined at module
+   scope so the landing's frequent re-renders (scroll state) never remount it
+   and reset the open accordion. */
+function FootCol({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="pl-foot-col">
+      <button
+        type="button"
+        className="pl-foot-head"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        {title}
+        <span className="pl-foot-chev" aria-hidden="true"><ChevronDown /></span>
+      </button>
+      <div className="pl-foot-links-wrap">
+        <div className="pl-foot-links">{children}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function PublicLanding({
   onStart,
   onDashboard = () => {},
@@ -506,27 +531,41 @@ window.addEventListener("scroll", onScroll, { passive: true });
 
       {/* ============================ FOOTER ============================ */}
       <footer className="pl-footer">
-        {/* top row — wordmark · nav · tagline */}
-        <div className="pl-wrap pl-foot-top">
-          <Wordmark mk="20px" sy="9px" />
-          <nav className="pl-foot-nav">
+        {/* main grid — brand · product · account · legal */}
+        <div className="pl-wrap pl-foot-main">
+          <div className="pl-foot-brand">
+            <Wordmark mk="22px" sy="9px" />
+            <p className="pl-foot-sub">AI habit systems, built for execution.</p>
+            <p className="pl-foot-mission">
+              MACP helps you turn goals into a daily operating system — AI-built plans,
+              today's frog, recovery when life happens, and weekly reviews that keep
+              the system realistic.
+            </p>
+          </div>
+
+          <FootCol title="Product">
             <a onClick={() => scrollToSection("how")}>How it works</a>
             <a onClick={() => scrollToSection("features")}>Features</a>
             <a onClick={() => scrollToSection("progress")}>Progress</a>
+          </FootCol>
+
+          <FootCol title="Account">
             <SignedOut><a onClick={() => onAuth("sign-in")}>Sign in</a></SignedOut>
-          </nav>
-          <span className="pl-foot-tagline">Build a system that compounds</span>
-        </div>
-        {/* bottom row — copyright · trust links · AI note */}
-        <div className="pl-wrap pl-foot-bottom">
-          <span className="pl-foot-copy">© 2026 MACP</span>
-          <div className="pl-foot-trust">
+            <a onClick={handleAssessmentClick}>Build your system</a>
+          </FootCol>
+
+          <FootCol title="Legal">
             <a onClick={() => onTrust("privacy")}>Privacy</a>
             <a onClick={() => onTrust("terms")}>Terms</a>
             <a onClick={() => onTrust("support")}>Support</a>
             <a onClick={() => onTrust("ai-disclaimer")}>AI Disclaimer</a>
-          </div>
-          <span className="pl-foot-note">AI habit guidance only. Not professional advice.</span>
+          </FootCol>
+        </div>
+
+        {/* bottom row — copyright · AI disclaimer */}
+        <div className="pl-wrap pl-foot-base">
+          <span className="pl-foot-copy">© 2026 MACP</span>
+          <span className="pl-foot-note">AI habit guidance · Use your judgment</span>
         </div>
       </footer>
     </div>

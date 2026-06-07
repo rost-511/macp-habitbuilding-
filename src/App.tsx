@@ -418,39 +418,53 @@ background-repeat:no-repeat;
 .pl-final p{font-family:var(--font-body);font-size:18px;color:var(--text-mid);margin:0 0 36px}
 .pl-final .pl-btn-amber{font-size:17px;padding:17px 30px}
 
-/* footer — two-row premium structure (Project 14C) */
+/* footer — multi-column grouped structure (Project 14C) */
 .pl-footer{border-top:1px solid var(--border);padding:0}
-/* top row: wordmark · main nav · tagline */
-.pl-foot-top{
-  display:flex;align-items:center;justify-content:space-between;
-  gap:20px;flex-wrap:wrap;padding:32px 0 24px;
+/* main grid: brand · product · account · legal */
+.pl-foot-main{
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;
+  gap:48px;padding:40px 0 28px;
   border-bottom:1px solid rgba(240,236,227,0.05)
 }
-.pl-foot-nav{display:flex;align-items:center;gap:24px;flex-wrap:wrap}
-.pl-foot-nav a{
-  font-family:var(--font-body);font-size:14px;color:#a39c92;
+.pl-foot-brand{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+/* brand intro — wordmark · subheader · mission. Subheader sits a touch
+   brighter/heavier than body; mission stays muted and calm. */
+.pl-foot-sub{
+  font-family:var(--font-body);font-weight:600;font-size:14.5px;line-height:1.4;
+  color:var(--text);margin:2px 0 0;max-width:340px
+}
+.pl-foot-mission{
+  font-family:var(--font-body);font-weight:400;font-size:13.5px;line-height:1.65;
+  color:#a39c92;margin:0;max-width:380px
+}
+/* nav columns — heading is a <button> (accordion toggle on mobile); on desktop
+   it reads as a static label, the chevron is hidden, and links stay open. */
+.pl-foot-col{display:flex;flex-direction:column;gap:14px}
+.pl-foot-head{
+  display:flex;align-items:center;justify-content:space-between;gap:12px;
+  width:100%;appearance:none;background:none;border:0;padding:0;margin:0;
+  cursor:default;text-align:left;
+  font-family:var(--font-mono);font-size:11px;font-weight:600;
+  letter-spacing:.2em;text-transform:uppercase;color:rgba(240,236,227,0.86)
+}
+.pl-foot-chev{display:none}
+/* desktop: wrapper is transparent so the column flex governs spacing */
+.pl-foot-links-wrap{display:contents}
+.pl-foot-links{display:flex;flex-direction:column;gap:11px}
+.pl-foot-col a{
+  font-family:var(--font-body);font-size:14px;color:#a39c92;width:fit-content;
   text-decoration:none;cursor:pointer;transition:color .16s ease
 }
-.pl-foot-nav a:hover{color:var(--text)}
-.pl-foot-tagline{
-  font-family:var(--font-mono);font-size:11px;letter-spacing:.18em;
-  text-transform:uppercase;color:var(--text-dim);white-space:nowrap
-}
-/* bottom row: copyright · trust links · AI note */
-.pl-foot-bottom{
+.pl-foot-col a:hover{color:var(--text)}
+/* bottom row: copyright · AI disclaimer */
+.pl-foot-base{
   display:flex;align-items:center;justify-content:space-between;
-  gap:16px;flex-wrap:wrap;padding:16px 0 36px
+  gap:16px;flex-wrap:wrap;padding:14px 0 24px
 }
 .pl-foot-copy{
   font-family:var(--font-mono);font-size:11px;letter-spacing:.14em;
   text-transform:uppercase;color:var(--text-dim);white-space:nowrap
 }
-.pl-foot-trust{display:flex;align-items:center;gap:20px;flex-wrap:wrap}
-.pl-foot-trust a{
-  font-family:var(--font-body);font-size:12.5px;color:var(--text-dim);
-  text-decoration:none;cursor:pointer;transition:color .16s ease
-}
-.pl-foot-trust a:hover{color:#a39c92}
 .pl-foot-note{
   font-family:var(--font-mono);font-size:10px;letter-spacing:.12em;
   text-transform:uppercase;color:rgba(163,156,146,0.38);
@@ -681,9 +695,8 @@ background-repeat:no-repeat;
 .pl-feat p,
 .pl-callout p,
 .pl-final p,
-.pl-foot-nav a,
-.pl-foot-tagline,
-.pl-foot-copy{
+.pl-foot-col a,
+.pl-foot-mission{
   color:#a39c92;
 }
 
@@ -721,6 +734,9 @@ background-repeat:no-repeat;
   .pl-future-slot{display:none}
   .pl-features{grid-template-columns:repeat(2,1fr)}
   .pl-feat.span2{grid-column:span 2}
+  /* footer: brand spans the top, three nav columns share the row below */
+  .pl-foot-main{grid-template-columns:repeat(3,1fr);gap:28px 28px}
+  .pl-foot-brand{grid-column:1 / -1}
 }
 @media (max-width:820px){
   .pl-wrap{padding:0 28px}
@@ -742,9 +758,65 @@ background-repeat:no-repeat;
   .pl-feat.span2 .pl-tile{margin-bottom:20px}
   .pl-dw-stats{grid-template-columns:1fr 1fr}
   .pl-final{padding:88px 0 80px}
-  /* footer: stack both rows cleanly — logo · nav · trust · copy/note */
-  .pl-foot-top{flex-direction:column;align-items:flex-start;gap:14px;padding:28px 0 20px}
-  .pl-foot-bottom{flex-direction:column;align-items:flex-start;gap:10px;padding:14px 0 32px}
+  /* footer: brand block on top, columns collapse into tappable accordion rows.
+     Everything shares the same left edge (.pl-wrap) — wordmark, tagline,
+     headings, links and the base row all start at x=0. */
+  /* soften the section divider above the brand and give it breathing room so it
+     reads as a subtle divider, not a line touching the MACP wordmark */
+  .pl-footer{
+  position:relative;
+  border-top-color:transparent;
+}
+.pl-footer::before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:-14px;
+  height:1px;
+  background:rgba(240,236,227,0.08);
+  pointer-events:none;
+}
+  .pl-foot-main{grid-template-columns:1fr;gap:0;padding:54px 0 0;border-bottom:none}
+  .pl-foot-brand{gap:10px;padding-bottom:22px}
+  /* hairline dividers — one per row, last row closes the stack (no boxes) */
+  .pl-foot-col{gap:0;border-top:1px solid rgba(240,236,227,0.06)}
+  .pl-foot-col:last-of-type{border-bottom:1px solid rgba(240,236,227,0.06)}
+  /* thin heading row: muted mono label + small dim chevron, vertically centered */
+  .pl-foot-head{
+  padding:13px 0;
+  cursor:pointer;
+  color:#a39c92;
+  font-size:11px;
+  letter-spacing:.2em;
+  line-height:1;
+}
+.pl-foot-head > span:first-child{
+  position:relative;
+  top:1px;
+  line-height:1;
+}
+
+.pl-foot-chev{
+  position:relative;
+  top:1px;
+}
+  .pl-foot-head[aria-expanded="true"]{color:var(--text)}
+  .pl-foot-chev{
+    display:flex;align-items:center;color:var(--text-dim);opacity:.55;
+    transition:transform .22s ease,opacity .22s ease
+  }
+  .pl-foot-chev svg{width:13px;height:13px}
+  .pl-foot-head[aria-expanded="true"] .pl-foot-chev{transform:rotate(180deg);opacity:.9}
+  /* collapsible region: calm, quick grid-rows + opacity fade (no bounce) */
+  .pl-foot-links-wrap{
+    display:grid;grid-template-rows:0fr;opacity:0;
+    transition:grid-template-rows .22s ease,opacity .22s ease
+  }
+  .pl-foot-head[aria-expanded="true"] + .pl-foot-links-wrap{grid-template-rows:1fr;opacity:1}
+  .pl-foot-links{overflow:hidden;min-height:0;gap:0;padding-bottom:10px}
+  .pl-foot-col a{width:fit-content;padding:9px 0;font-size:13.5px}
+  .pl-foot-base{flex-direction:column;align-items:flex-start;gap:7px;padding:16px 0 28px}
   .pl-foot-note{text-align:left}
 }
 
