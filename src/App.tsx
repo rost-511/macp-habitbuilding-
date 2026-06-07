@@ -306,10 +306,29 @@ background-repeat:no-repeat;
 
 /* how it works */
 .pl-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
-.pl-step{background:var(--surface);border:1px solid var(--border);border-radius:var(--r2);padding:26px 24px 28px;transition:border-color .2s ease}
-.pl-step:hover{border-color:rgba(212,146,42,0.4)}
+.pl-step{
+  background:linear-gradient(180deg, rgba(20,15,10,0.72), rgba(8,6,4,0.86));
+  border:1px solid rgba(226,162,58,0.14);
+  border-radius:var(--r2);
+  padding:26px 24px 28px;
+  box-shadow:
+    inset 0 1px 0 rgba(239,231,220,0.035),
+    0 18px 50px rgba(0,0,0,0.18);
+  transition:border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.pl-step:hover{
+  border-color:rgba(226,162,58,0.28);
+  background:linear-gradient(180deg, rgba(26,18,10,0.78), rgba(9,7,5,0.9));
+  box-shadow:
+    inset 0 1px 0 rgba(239,231,220,0.045),
+    0 22px 60px rgba(226,162,58,0.055);
+}
 .pl-step .pl-num{font-family:var(--font-mono);font-size:12px;letter-spacing:.2em;color:var(--amber)}
-.pl-step .pl-line{height:1px;background:var(--border);margin:18px 0 20px}
+.pl-step .pl-line{
+  height:1px;
+  background:rgba(226,162,58,0.14);
+  margin:18px 0 20px;
+}
 .pl-step h3{font-family:var(--font-display);font-weight:700;font-size:21px;color:var(--text);margin:0 0 10px;line-height:1.15}
 .pl-step p{font-family:var(--font-body);font-size:14.5px;color:var(--text-mid);line-height:1.5;margin:0}
 
