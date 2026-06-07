@@ -21,18 +21,11 @@ import {
   getWeeklyReviews,
 } from "./lib/userData";
 import { STYLES } from "./styles/appStyles";
+import { GOALS, HABITS_CATS, WORKOUTS, SITUATIONS, ENERGY_LEVELS, DAY_ABBRS, STEPS, REVIEW_SECTION_HEADERS } from "./lib/constants";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    CONSTANTS & HELPERS
 ───────────────────────────────────────────────────────────────────────────── */
-const GOALS   = ["Finish degree","Launch a product","Get fit & healthy","Build a business","Read 12 books/year","Learn a new skill","Improve sleep quality","Reduce stress","Save money","Career promotion"];
-const HABITS_CATS = ["Morning Routine","Deep Work","Exercise","Business","Study","Evening Wind-down","Nutrition","Mindfulness","Reading","Networking"];
-const WORKOUTS = [{v:"none",l:"No workout yet"},{v:"walk",l:"Daily walk"},{v:"home",l:"Home workout"},{v:"gym",l:"Gym session"}];
-const SITUATIONS = ["College student","Working professional","Entrepreneur","Freelancer","Student + job","Business owner"];
-const ENERGY_LEVELS = [{v:"peak",l:"🔥 Peak",c:"#d4922a"},{v:"good",l:"✅ Good",c:"#2d9e5f"},{v:"low",l:"😴 Low",c:"#6b6870"},{v:"exam",l:"📚 Exam mode",c:"#3a7cbf"}];
-
-const DAY_ABBRS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
-
 function tierFor(week) {
   if (week === 0) return { label:"Assessment", color:"#6b6870", level:0 };
   if (week <= 2)  return { label:"Tier 1 · Foundation", color:"#c9961a", level:1 };
@@ -298,15 +291,6 @@ function StarRating({ label, value, onChange }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WIZARD
 ───────────────────────────────────────────────────────────────────────────── */
-const STEPS = [
-  { label:"Step 1 / 6", title:"Choose Your Focus Mode", sub:"What should MACP optimize your system for?" },
-  { label:"Step 2 / 6", title:"Who are you?",               sub:"Build your identity profile." },
-  { label:"Step 3 / 6", title:"Your Schedule",              sub:"Tell me when you live your life." },
-  { label:"Step 4 / 6", title:"Goals & Ambition",           sub:"What are you building toward?" },
-  { label:"Step 5 / 6", title:"Energy & Constraints",       sub:"Honesty here shapes everything." },
-  { label:"Step 6 / 6", title:"Choose Habit Categories",    sub:"Where do you want to level up?" },
-];
-
 function Wizard({ onComplete, initialProfile = null }) {
   const [step, setStep] = useState(0);
   const [error, setError] = useState("");
@@ -2153,15 +2137,6 @@ function CalendarPage({ supabase, userId }) {
 /* ─────────────────────────────────────────────────────────────────────────────
    WEEKLY REVIEW
 ───────────────────────────────────────────────────────────────────────────── */
-const REVIEW_SECTION_HEADERS: readonly string[] = [
-  "WEEK GRADE",
-  "WINS THIS WEEK",
-  "GROWTH EDGE",
-  "TIER STATUS",
-  "NEXT WEEK'S KEYSTONE",
-  "RECOVERY PROTOCOL",
-];
-
 function parseInsightSections(raw: string): { header: string; body: string }[] {
   if (!raw) return [];
   const lines = raw.split("\n");
