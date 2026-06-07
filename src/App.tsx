@@ -23,6 +23,8 @@ import {
 import { STYLES } from "./styles/appStyles";
 import { GOALS, HABITS_CATS, WORKOUTS, SITUATIONS, ENERGY_LEVELS, DAY_ABBRS, STEPS, REVIEW_SECTION_HEADERS } from "./lib/constants";
 import { tierFor, pickSmartNudge, makeHabits, makeTimeline, nowMinutes, timeToMin, todayLabel, fmtSecs, parseInsightSections } from "./lib/helpers";
+import { ProgressRing } from "./components/app/ProgressRing";
+import { MacpLoader } from "./components/app/MacpLoader";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    API — STREAMING CLAUDE
@@ -123,27 +125,6 @@ function FocusMode({ task, onExit, onDone }) {
           : <button className="focus-done" onClick={onDone}>✓ Complete Frog Task</button>
         }
         <button className="focus-ctrl focus-exit" onClick={onExit}>Exit</button>
-      </div>
-    </div>
-  );
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   PROGRESS RING
-───────────────────────────────────────────────────────────────────────────── */
-function ProgressRing({ pct }) {
-  const r = 52, circ = 2*Math.PI*r;
-  const dash = circ*(1-pct/100);
-  return (
-    <div className="ring-wrap fu fu2">
-      <svg width="120" height="120" className="ring-svg">
-        <circle cx="60" cy="60" r={r} className="ring-bg"/>
-        <circle cx="60" cy="60" r={r} className="ring-fg"
-          strokeDasharray={circ} strokeDashoffset={dash}/>
-      </svg>
-      <div className="ring-center">
-        <div className="ring-pct">{pct}%</div>
-        <div className="ring-lbl">Done Today</div>
       </div>
     </div>
   );
@@ -781,45 +762,6 @@ const previewSummary = String(preview?.aiPlanText || "")
 /* ─────────────────────────────────────────────────────────────────────────────
    DASHBOARD
 ───────────────────────────────────────────────────────────────────────────── */
-function MacpLoader({ variant = "boot" }: { variant?: "boot" | "setup" }) {
-  // Premium post-auth transition — neutral hand-off while we route the user.
-  if (variant === "setup") {
-    return (
-      <div className="setup-wrap grain">
-        <div className="setup-pill">M · A · C · P SYSTEM</div>
-        <h1 className="setup-title">Opening your <em>system…</em></h1>
-        <p className="setup-sub">Checking your setup and sending you to the right place.</p>
-        <div className="setup-bar"><div className="setup-bar-fill" /></div>
-        <div className="setup-steps">
-          <div className="setup-step done"><span className="setup-check">✓</span> Account verified</div>
-          <div className="setup-step done"><span className="setup-check">✓</span> Setup checked</div>
-          <div className="setup-step pending"><span className="setup-ring" /> Opening MACP</div>
-        </div>
-      </div>
-    );
-  }
-  // Minimal boot loader (unchanged behavior on app cold-start).
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 9999,
-        background: "var(--bg)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: "var(--amber)",
-        fontFamily: "var(--font-body)",
-        fontSize: ".9rem",
-        fontWeight: 700,
-        letterSpacing: ".02em",
-      }}
-    >
-      Loading MACP…
-    </div>
-  );
-}
 function Dashboard({ profile, setProfile, plan = null, supabase, userId }) { 
   const tier = tierFor(profile.week || 1);
 
