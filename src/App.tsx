@@ -988,10 +988,14 @@ background-repeat:no-repeat;
 .tp-foot-home:hover{color:var(--text)}
 
 @media (max-width:600px){
-  .tp-wrap{padding:0 22px}
+  /* header keeps its exact current gutter (frozen — logo/back untouched). Only
+     the body content gets a wider horizontal inset so text sits further from
+     the screen edges. .tp-main carries both classes, and its later padding
+     shorthand overrides .tp-wrap's gutter for the content column only. */
+  .tp-wrap{padding:0 26px}
   .tp-header-inner{height:58px}
   .tp-back span{display:none}
-  .tp-main{padding:36px 0 0}
+  .tp-main{padding:36px 36px 0}
   .tp-intro{font-size:16px}
   .tp-foot{flex-direction:column;align-items:flex-start;gap:14px}
 }
