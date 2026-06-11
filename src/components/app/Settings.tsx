@@ -3,6 +3,7 @@
 // supabase, the getPlanHistory data loader, and renderInsightSections are passed in as props (no userData import).
 import { useState, useEffect } from "react";
 import { tierFor, makeHabits, makeTimeline } from "../../lib/helpers";
+import { INTENSITIES, PEAK_WINDOWS } from "../../lib/constants";
 
 export function Settings({ profile, setProfile, onReset, onGenerateNewPlan, userId, plan, weeklyReviews, weeklyReviewsLoading, supabase, getPlanHistory, renderInsightSections }) {
   const [planHistory, setPlanHistory] = useState<any[]>([]);
@@ -150,9 +151,13 @@ export function Settings({ profile, setProfile, onReset, onGenerateNewPlan, user
               ["Name", profile.name||"—"],
               ["Situation", profile.situation||"—"],
               ["Wake time", profile.wakeTime],
+              ["Sleep time", profile.sleepTime||"—"],
               ["Study hours/day", profile.collegeHours||"0"],
               ["Work hours/day", profile.workHours||"0"],
               ["Energy level", `${profile.energyLevel}/10`],
+              ["Peak focus", PEAK_WINDOWS.find(w=>w.v===profile.peakFocusTime)?.l||"—"],
+              ["Intensity", INTENSITIES.find(i=>i.v===profile.intensity)?.l||"—"],
+              ["Biggest struggle", profile.struggle||"—"],
               ["Business goal", profile.businessGoal||"—"],
             ].map(([l,v])=>(
               <div key={l} className="info-row">

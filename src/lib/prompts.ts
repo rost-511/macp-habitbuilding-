@@ -5,7 +5,7 @@
 
 import { buildModeBlock, type PlanMode } from "./planModes";
 
-export const PLAN_PROMPT_VERSION = "plan-v2.1";
+export const PLAN_PROMPT_VERSION = "plan-v3";
 export const REVIEW_PROMPT_VERSION = "review-v2";
 export const RECOVERY_PROMPT_VERSION = "recovery-v1";
 
@@ -33,15 +33,36 @@ export function buildPlanPrompt(
 
   const modeBlock = buildModeBlock(planMode);
 
+  // Onboarding v2 fields (Project 15). All fall back gracefully so plans for
+  // old saved users (pre-v2 onboarding_answers) still generate correctly.
+  const peakLabels: Record<string, string> = {
+    early_morning: "Early morning (5–8)",
+    morning: "Morning (8–12)",
+    afternoon: "Afternoon (12–17)",
+    evening: "Evening (17–21)",
+    night: "Night (21–1)",
+  };
+  const peakFocus = peakLabels[profile.peakFocusTime] || "Not specified";
+  const intensity = profile.intensity || "balanced";
+  const scheduleText =
+    typeof profile.scheduleText === "string" &&
+    profile.scheduleText.trim() &&
+    !/^none$/i.test(profile.scheduleText.trim())
+      ? profile.scheduleText.trim()
+      : "No fixed commitments reported";
+
   return `You are MACP — an elite habit-architecture AI. Design a behavior-science-backed daily system for this user and return ONLY a valid JSON object. No markdown, no code fences, no extra text — just the raw JSON.
 ${memoryBlock}
 USER PROFILE:
 - Name: ${profile.name || "User"}
 - Situation: ${profile.situation || "Not specified"}
 - Wake time: ${profile.wakeTime}
+- Sleep time: ${profile.sleepTime || "Not specified"}
 - College/study hours per day: ${profile.collegeHours || 0}h
 - Work hours per day: ${profile.workHours || 0}h
 - Free/discretionary hours per day: ${profile.freeHours || "Not specified"}
+- Fixed schedule (plan AROUND these blocks — never schedule over them): ${scheduleText}
+- Peak focus window: ${peakFocus}
 - Business goal: ${profile.businessGoal || "None"}
 - Average energy level: ${profile.energyLevel}/10
 - Workout: ${profile.workout}
@@ -49,6 +70,11 @@ USER PROFILE:
 - Habit categories: ${(profile.categories || []).join(", ")}
 - Constraints (HARD limits — never violate): ${profile.constraints || "None"}
 - Main goal: ${profile.mainGoal || "Not specified"}
+- First-week win they chose: ${profile.firstWin || "Not specified"}
+- Desired intensity: ${intensity}
+- Biggest current struggle: ${profile.struggle || "Not specified"}
+- Typical failure pattern: ${profile.failurePattern || "Not specified"}
+- What motivates them: ${profile.motivationStyle || "Not specified"}
 - Program week: ${profile.week || 1} (${tierLabel || "Tier 1 · Foundation"})
 - Existing habits to respect/build on: ${existingHabits}
 
@@ -58,9 +84,13 @@ DESIGN PRINCIPLES (apply all):
   Tier 1 (Foundation): friction-free, 2-minute-rule habits that are nearly impossible to fail.
   Tier 2 (Momentum): add depth and duration to the foundation.
   Tier 3 (Optimized): demanding keystone and high-leverage habits.
+- Intensity calibration: "gentle" = shrink every habit to its smallest confidence-building version; "balanced" = steady challenge; "aggressive" = push toward the demanding end of the user's tier — but never exceed the tier ceiling or the free-hours budget.
 - Behavior design: every habit is specific, measurable, and cue-anchored via habit stacking ("after [existing routine], I will [habit]"). Give the smallest viable version.
 - Honor the user's constraints as hard limits — never prescribe a habit or time block that violates them.
-- Schedule around their real life: protect peak-energy time for the frog and work around their work, study, and workout hours above.
+- Schedule around their real life: the dailyFlow must respect the fixed schedule blocks above, place the frog inside their peak focus window when possible, and wind down at least 60 minutes before their sleep time.
+- Counter their failure pattern: design the habit cues and the lowEnergyFallback specifically to defeat the failure pattern they named (e.g. all-or-nothing → explicit minimum versions; fades by week 2 → week-2 escalation warning in aiPlanText; forgets → strong environmental cues).
+- Speak their motivation language: frame the identityStatement and aiPlanText in terms of what motivates them (streaks/data, identity, accountability, quick wins, or challenge).
+- Deliver their first-week win: the frog task or habit h1 must directly produce the first-week win they chose, within 7 days.
 ${modeBlock}
 Return this exact JSON shape (all fields required):
 {
@@ -101,6 +131,7 @@ Return this exact JSON shape (all fields required):
 Rules:
 - habits tag must be exactly one of: morning, work, health, business, evening
 - dailyFlow time must be HH:MM 24-hour format, kept in ascending order
+- the dailyFlow times above are defaults — shift them as needed so no block overlaps the user's fixed schedule, the frog lands in their peak focus window, and wind-down starts at least 60 minutes before their sleep time
 - habits array must have exactly 5 items with unique ids h1–h5
 - scale habits by difficulty to the user's tier — never return more or fewer than 5
 - every habit must be specific, measurable, and cue-anchored; no generic advice

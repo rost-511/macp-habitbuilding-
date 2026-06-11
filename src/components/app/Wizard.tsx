@@ -1,8 +1,21 @@
-// Wizard — onboarding/assessment flow (Project 14D — Task 5).
-// Moved verbatim from App.tsx; validation, copy, class names, and flow unchanged.
+// Wizard — onboarding/assessment flow (Project 15 rewrite).
+// 7 steps. All Project-14 fields are preserved (old saved users load cleanly via
+// initialProfile); new assessment fields are additive and live inside
+// onboarding_answers — no DB schema change.
 import { useState } from "react";
 import { PLAN_MODES, normalizePlanMode } from "../../lib/planModes";
-import { GOALS, HABITS_CATS, SITUATIONS, STEPS, WORKOUTS } from "../../lib/constants";
+import {
+  FAILURE_PATTERNS,
+  GOALS,
+  HABITS_CATS,
+  INTENSITIES,
+  MOTIVATION_STYLES,
+  PEAK_WINDOWS,
+  SITUATIONS,
+  STEPS,
+  STRUGGLES,
+  WORKOUTS,
+} from "../../lib/constants";
 
 export function Wizard({ onComplete, initialProfile = null }) {
   const [step, setStep] = useState(0);
@@ -10,6 +23,7 @@ export function Wizard({ onComplete, initialProfile = null }) {
 
   const [P, setP] = useState(() => {
     const base = {
+      // Project 14 fields — unchanged keys, old profiles stay compatible.
       name: "",
       situation: "",
       wakeTime: "06:00",
@@ -26,10 +40,19 @@ export function Wizard({ onComplete, initialProfile = null }) {
       customHabits: [],
       week: 1,
       plan_mode: "general",
+      // Project 15 fields — additive.
+      sleepTime: "23:00",
+      scheduleText: "",
+      peakFocusTime: "morning",
+      intensity: "balanced",
+      struggle: "",
+      failurePattern: "",
+      motivationStyle: "",
+      firstWin: "",
     };
-  
-    const initial = initialProfile || {};
-  
+
+    const initial: any = initialProfile || {};
+
     return {
       ...base,
       ...initial,
@@ -43,6 +66,13 @@ export function Wizard({ onComplete, initialProfile = null }) {
       energyLevel: Number(initial.energyLevel || base.energyLevel),
       week: Number(initial.week || base.week),
       plan_mode: normalizePlanMode(initial.plan_mode || base.plan_mode),
+      sleepTime: typeof initial.sleepTime === "string" && initial.sleepTime ? initial.sleepTime : base.sleepTime,
+      peakFocusTime: PEAK_WINDOWS.some((w) => w.v === initial.peakFocusTime)
+        ? initial.peakFocusTime
+        : base.peakFocusTime,
+      intensity: INTENSITIES.some((i) => i.v === initial.intensity)
+        ? initial.intensity
+        : base.intensity,
     };
   });
   const up = (k, v) => {
@@ -85,11 +115,12 @@ export function Wizard({ onComplete, initialProfile = null }) {
     if (stepIndex === 2) {
       const missing = [];
       if (isBlank(P.wakeTime)) missing.push("Wake time");
+      if (isBlank(P.sleepTime)) missing.push("Sleep time");
       if (isBlank(P.workout)) missing.push("Workout preference");
       if (!validHours(P.collegeHours)) missing.push("Study hours / day");
       if (!validHours(P.workHours)) missing.push("Work hours / day");
-      if (!isBlank(P.businessGoal) && !isMeaningfulText(P.businessGoal, 3))
-        missing.push("Business goal (at least 3 characters, not just a number)");
+      if (!isMeaningfulText(P.scheduleText, 3))
+        missing.push("Fixed schedule (describe your commitments, or write \"none\")");
       return missing;
     }
 
@@ -98,6 +129,10 @@ export function Wizard({ onComplete, initialProfile = null }) {
       if (!P.goals.length) missing.push("Top goals (select at least one)");
       if (!isMeaningfulText(P.mainGoal, 10))
         missing.push("Main 90-day goal (at least 10 characters — describe what you want to achieve)");
+      if (!isMeaningfulText(P.firstWin, 5))
+        missing.push("First small win (at least 5 characters — what would feel like progress in week 1?)");
+      if (!isBlank(P.businessGoal) && !isMeaningfulText(P.businessGoal, 3))
+        missing.push("Business goal (at least 3 characters, not just a number)");
       return missing;
     }
 
@@ -105,12 +140,22 @@ export function Wizard({ onComplete, initialProfile = null }) {
       const missing = [];
       if (!P.energyLevel) missing.push("Average daily energy");
       if (isBlank(P.freeHours)) missing.push("Free hours per day");
+      if (isBlank(P.peakFocusTime)) missing.push("Peak focus window");
+      if (isBlank(P.intensity)) missing.push("Plan intensity");
+      return missing;
+    }
+
+    if (stepIndex === 5) {
+      const missing = [];
+      if (isBlank(P.struggle)) missing.push("Biggest struggle (pick one)");
+      if (isBlank(P.failurePattern)) missing.push("Failure pattern (pick one)");
+      if (isBlank(P.motivationStyle)) missing.push("What keeps you going (pick one)");
       if (!isMeaningfulText(P.constraints, 3))
         missing.push("Constraints or challenges (at least 3 characters)");
       return missing;
     }
 
-    if (stepIndex === 5) {
+    if (stepIndex === 6) {
       const missing = [];
       if (!P.categories.length) missing.push("Focus areas (select at least one)");
       return missing;
@@ -162,6 +207,8 @@ export function Wizard({ onComplete, initialProfile = null }) {
       businessGoal: P.businessGoal.trim(),
       mainGoal: P.mainGoal.trim(),
       constraints: P.constraints.trim(),
+      scheduleText: P.scheduleText.trim(),
+      firstWin: P.firstWin.trim(),
     });
   };
 
@@ -176,29 +223,23 @@ export function Wizard({ onComplete, initialProfile = null }) {
         <div className="fgrp">
           <div className="field">
             <label>What should MACP optimize your system for?</label>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 4 }}>
+            <div className="wiz-modes">
               {PLAN_MODES.map((m) => {
                 const on = P.plan_mode === m.id;
                 return (
                   <div
                     key={m.id}
+                    className={`wiz-mode ${on ? "on" : ""}`}
                     onClick={() => up("plan_mode", m.id)}
-                    style={{
-                      cursor: "pointer",
-                      padding: "14px 16px",
-                      borderRadius: "var(--r2)",
-                      border: `1px solid ${on ? "rgba(212,146,42,0.7)" : "var(--border2)"}`,
-                      background: on ? "var(--amber-dim)" : "var(--surface2)",
-                      transition: "border-color .15s, background .15s",
-                    }}
                   >
-                    <div style={{ fontSize: "1.15rem", marginBottom: 6 }}>{m.icon}</div>
-                    <div style={{ fontWeight: 600, fontSize: ".9rem", color: on ? "var(--amber)" : "var(--text)" }}>{m.label}</div>
-                    <div style={{ fontSize: ".74rem", color: "var(--text-mid)", lineHeight: 1.45, marginTop: 3 }}>{m.description}</div>
+                    <div className="wiz-mode-ic">{m.icon}</div>
+                    <div className="wiz-mode-l">{m.label}</div>
+                    <div className="wiz-mode-d">{m.description}</div>
                   </div>
                 );
               })}
             </div>
+            <span className="field-hint">You can regenerate your plan in a different mode at any time.</span>
           </div>
         </div>
       )}
@@ -228,10 +269,8 @@ export function Wizard({ onComplete, initialProfile = null }) {
               <input type="time" value={P.wakeTime} onChange={e=>up("wakeTime",e.target.value)}/>
             </div>
             <div className="field">
-              <label>Workout preference</label>
-              <select value={P.workout} onChange={e=>up("workout",e.target.value)}>
-                {WORKOUTS.map(w=><option key={w.v} value={w.v}>{w.l}</option>)}
-              </select>
+              <label>Sleep time</label>
+              <input type="time" value={P.sleepTime} onChange={e=>up("sleepTime",e.target.value)}/>
             </div>
           </div>
           <div className="row2">
@@ -246,8 +285,16 @@ export function Wizard({ onComplete, initialProfile = null }) {
             </div>
           </div>
           <div className="field">
-            <label>Business goal (optional)</label>
-            <input value={P.businessGoal} onChange={e=>up("businessGoal",e.target.value)} placeholder="e.g. Launch Shopify store by August"/>
+            <label>Workout preference</label>
+            <select value={P.workout} onChange={e=>up("workout",e.target.value)}>
+              {WORKOUTS.map(w=><option key={w.v} value={w.v}>{w.l}</option>)}
+            </select>
+          </div>
+          <div className="field">
+            <label>Your fixed schedule</label>
+            <textarea value={P.scheduleText} onChange={e=>up("scheduleText",e.target.value)}
+              placeholder={"e.g. Classes Mon–Fri 9:00–13:00, work shift 15:00–19:00, gym Tue/Thu evening..."}/>
+            <span className="field-hint">The blocks MACP must plan around — classes, shifts, commute, family time. Write "none" if your day is open.</span>
           </div>
         </div>
       )}
@@ -266,6 +313,16 @@ export function Wizard({ onComplete, initialProfile = null }) {
             <label>Your main 90-day goal (in your own words)</label>
             <textarea value={P.mainGoal} onChange={e=>up("mainGoal",e.target.value)} placeholder="By the end of 90 days I want to..."/>
           </div>
+          <div className="field">
+            <label>Your first small win</label>
+            <input value={P.firstWin} onChange={e=>up("firstWin",e.target.value)}
+              placeholder="e.g. Study 30 focused minutes every day this week"/>
+            <span className="field-hint">One small thing that would feel like real progress in week 1. Your plan is built to deliver it.</span>
+          </div>
+          <div className="field">
+            <label>Business goal (optional)</label>
+            <input value={P.businessGoal} onChange={e=>up("businessGoal",e.target.value)} placeholder="e.g. Launch Shopify store by August"/>
+          </div>
         </div>
       )}
 
@@ -281,10 +338,63 @@ export function Wizard({ onComplete, initialProfile = null }) {
             </div>
           </div>
           <div className="field">
+            <label>When is your brain at its best?</label>
+            <div className="chips">
+              {PEAK_WINDOWS.map(w=>(
+                <div key={w.v} className={`chip ${P.peakFocusTime===w.v?"on":""}`} onClick={()=>up("peakFocusTime",w.v)}>{w.l}</div>
+              ))}
+            </div>
+            <span className="field-hint">Your most important task gets scheduled here.</span>
+          </div>
+          <div className="field">
             <label>Free hours per day (realistic)</label>
             <select value={P.freeHours} onChange={e=>up("freeHours",e.target.value)}>
               {["< 1","1","2","3","4","5+"].map(o=><option key={o}>{o}</option>)}
             </select>
+          </div>
+          <div className="field">
+            <label>How hard should MACP push you?</label>
+            <div className="wiz-modes">
+              {INTENSITIES.map((i)=>{
+                const on = P.intensity === i.v;
+                return (
+                  <div key={i.v} className={`wiz-mode ${on?"on":""}`} onClick={()=>up("intensity",i.v)}>
+                    <div className="wiz-mode-l">{i.l}</div>
+                    <div className="wiz-mode-d">{i.d}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {step===5 && (
+        <div className="fgrp">
+          <div className="field">
+            <label>Your biggest struggle right now (pick one)</label>
+            <div className="chips">
+              {STRUGGLES.map(s=>(
+                <div key={s} className={`chip ${P.struggle===s?"on":""}`} onClick={()=>up("struggle",s)}>{s}</div>
+              ))}
+            </div>
+          </div>
+          <div className="field">
+            <label>When habits failed before, what happened? (pick one)</label>
+            <div className="chips">
+              {FAILURE_PATTERNS.map(f=>(
+                <div key={f} className={`chip ${P.failurePattern===f?"on":""}`} onClick={()=>up("failurePattern",f)}>{f}</div>
+              ))}
+            </div>
+            <span className="field-hint">No judgment — your recovery protocol is designed around this answer.</span>
+          </div>
+          <div className="field">
+            <label>What actually keeps you going? (pick one)</label>
+            <div className="chips">
+              {MOTIVATION_STYLES.map(m=>(
+                <div key={m} className={`chip ${P.motivationStyle===m?"on":""}`} onClick={()=>up("motivationStyle",m)}>{m}</div>
+              ))}
+            </div>
           </div>
           <div className="field">
             <label>Constraints or challenges</label>
@@ -294,7 +404,7 @@ export function Wizard({ onComplete, initialProfile = null }) {
         </div>
       )}
 
-      {step===5 && (
+      {step===6 && (
         <div className="fgrp">
           <div className="field">
             <label>Focus areas (choose your habit categories)</label>

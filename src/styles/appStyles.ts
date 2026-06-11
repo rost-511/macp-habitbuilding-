@@ -915,6 +915,23 @@ body,#root{
 .prog-track{height:3px;background:var(--border);border-radius:99px;margin-bottom:44px;overflow:hidden}
 .prog-fill{height:100%;background:var(--amber);border-radius:99px;transition:width .5s cubic-bezier(.4,0,.2,1)}
 
+/* option cards (focus mode, intensity) */
+.wiz-modes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.wiz-mode{
+  cursor:pointer;padding:14px 16px;border-radius:var(--r2);
+  border:1px solid var(--border2);background:var(--surface2);
+  transition:border-color .15s,background .15s,transform .15s;
+}
+.wiz-mode:hover{border-color:var(--border2);transform:translateY(-1px)}
+.wiz-mode.on{border-color:rgba(212,146,42,0.7);background:var(--amber-dim)}
+.wiz-mode-ic{font-size:1.15rem;margin-bottom:6px}
+.wiz-mode-l{font-weight:600;font-size:.9rem;color:var(--text)}
+.wiz-mode.on .wiz-mode-l{color:var(--amber)}
+.wiz-mode-d{font-size:.74rem;color:var(--text-mid);line-height:1.45;margin-top:3px}
+@media (max-width:520px){
+  .wiz-modes{grid-template-columns:1fr}
+}
+
 /* form elements */
 .fgrp{display:flex;flex-direction:column;gap:22px}
 .field{display:flex;flex-direction:column;gap:8px}

@@ -30,7 +30,8 @@ export async function completeOnboarding(
         clerk_user_id: clerkUserId,
         full_name: fullName,
         onboarding_completed: true,
-        onboarding_version: 1,
+        // v2 = Project 15 assessment (schedule, intensity, failure pattern, etc.)
+        onboarding_version: 2,
         onboarding_answers: answers,
       },
       { onConflict: "clerk_user_id" }

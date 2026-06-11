@@ -9,13 +9,56 @@ export const ENERGY_LEVELS = [{v:"peak",l:"🔥 Peak",c:"#d4922a"},{v:"good",l:"
 
 export const DAY_ABBRS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 
+// Onboarding v2 — assessment options (Project 15).
+// Single-select chips: value is stored verbatim in onboarding_answers.
+export const STRUGGLES = [
+  "Staying consistent",
+  "Procrastination",
+  "Phone / distraction",
+  "Low energy",
+  "Too many goals at once",
+  "Starting too big",
+];
+
+export const FAILURE_PATTERNS = [
+  "Strong start, fade by week 2",
+  "One missed day becomes a missed week",
+  "All-or-nothing — perfect or nothing",
+  "Life gets busy and the plan dies",
+  "I simply forget",
+  "Never really started",
+];
+
+export const MOTIVATION_STYLES = [
+  "Streaks & visible progress",
+  "Becoming a better version of me",
+  "Accountability & commitments",
+  "Quick wins I can feel",
+  "Competition & challenge",
+];
+
+export const INTENSITIES = [
+  { v: "gentle",   l: "Gentle",   d: "Small, almost effortless steps. Build the streak first." },
+  { v: "balanced", l: "Balanced", d: "Steady challenge without burnout. The default." },
+  { v: "aggressive", l: "Aggressive", d: "Push hard. I want demanding days." },
+];
+
+export const PEAK_WINDOWS = [
+  { v: "early_morning", l: "Early morning (5–8)" },
+  { v: "morning",       l: "Morning (8–12)" },
+  { v: "afternoon",     l: "Afternoon (12–17)" },
+  { v: "evening",       l: "Evening (17–21)" },
+  { v: "night",         l: "Night (21–1)" },
+];
+
 export const STEPS = [
-  { label:"Step 1 / 6", title:"Choose Your Focus Mode", sub:"What should MACP optimize your system for?" },
-  { label:"Step 2 / 6", title:"Who are you?",               sub:"Build your identity profile." },
-  { label:"Step 3 / 6", title:"Your Schedule",              sub:"Tell me when you live your life." },
-  { label:"Step 4 / 6", title:"Goals & Ambition",           sub:"What are you building toward?" },
-  { label:"Step 5 / 6", title:"Energy & Constraints",       sub:"Honesty here shapes everything." },
-  { label:"Step 6 / 6", title:"Choose Habit Categories",    sub:"Where do you want to level up?" },
+  { label:"Step 1 / 7", title:"Choose Your Focus Mode", sub:"What should MACP optimize your system for?" },
+  { label:"Step 2 / 7", title:"Who are you?",            sub:"Build your identity profile." },
+  { label:"Step 3 / 7", title:"Your Day, Honestly",      sub:"MACP plans around your real schedule — not an ideal one." },
+  { label:"Step 4 / 7", title:"Goals & First Win",       sub:"What are you building toward — and what counts as progress?" },
+  { label:"Step 5 / 7", title:"Energy & Intensity",      sub:"When you peak, and how hard you want to be pushed." },
+  { label:"Step 6 / 7", title:"What Gets In The Way",    sub:"Honesty here shapes everything. MACP designs around your failure pattern." },
+  { label:"Step 7 / 7", title:"Choose Habit Categories", sub:"Where do you want to level up?" },
 ];
 
 export const REVIEW_SECTION_HEADERS: readonly string[] = [
