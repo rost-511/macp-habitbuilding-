@@ -23,3 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# Superpowers brainstorm sessions (local mockups)
+.superpowers/

@@ -5,7 +5,7 @@ import { useEffect, useRef } from "react";
    Public Privacy / Terms / Support / AI Disclaimer pages. Each owns its own
    header + footer and renders inside the app's `.page` scroll container (same
    model as PublicLanding — no router). Warm-black MACP styling, tp-* namespace;
-   reuses .pl-wordmark for the mark. MVP trust content — honest and concise.
+   own .tp-wordmark for the mark. MVP trust content — honest and concise.
 ───────────────────────────────────────────────────────────────────────────── */
 
 export type TrustPageKey = "privacy" | "terms" | "support" | "ai-disclaimer";
@@ -322,7 +322,7 @@ export default function TrustPage({
     <div className="tp-root" ref={rootRef}>
       <header className="tp-header">
         <div className="tp-wrap tp-header-inner">
-          <button className="pl-wordmark" onClick={onHome} aria-label="MACP system — back to home">
+          <button className="tp-wordmark" onClick={onHome} aria-label="MACP system — back to home">
             <span className="mk" style={{ fontSize: "22px" }}>MACP</span>
             <span className="sy" style={{ fontSize: "9px" }}>system</span>
           </button>

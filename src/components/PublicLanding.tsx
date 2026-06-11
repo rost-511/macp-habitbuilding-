@@ -2,17 +2,21 @@ import { useState, useEffect, useRef } from "react";
 import { SignedIn, SignedOut, UserButton, useAuth } from "@clerk/clerk-react";
 import { useSupabase } from "../lib/useSupabase";
 import { getMyProfile } from "../lib/userData";
+import { LANDING_STYLES } from "../styles/landingStyles";
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   PUBLIC LANDING (Project 14B)
+   PUBLIC LANDING (2026-06 redesign)
    Presentational marketing page. Owns its own sticky header. The scroll
    container is the app's `.page` element (NOT the window) — every scroll read,
    the reveal IntersectionObserver root, and smooth-scroll target `.page`.
-   Styles live in App.tsx's STYLES block under the `.pl-*` namespace.
+   Styles: src/styles/landingStyles.ts (`.lp-*` namespace), injected below.
+   Spec: docs/superpowers/specs/2026-06-11-landing-redesign-design.md
 ───────────────────────────────────────────────────────────────────────────── */
 
-// small helper: custom CSS property for staggered reveal delay
+// custom CSS property for staggered reveal/load delay
 const rd = (d: string) => ({ "--d": d } as React.CSSProperties);
+// bar helper: height + grow-delay custom properties for the recovery chart
+const rd2 = (h: string, bd: string) => ({ "--h": h, "--bd": bd } as React.CSSProperties);
 
 const ArrowRight = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -26,25 +30,23 @@ const ChevronDown = () => (
 );
 
 /* Footer column. Static open column on desktop; on mobile the heading becomes a
-   tappable accordion row (CSS handles the show/hide + chevron rotation purely
-   from aria-expanded, so desktop ignores `open` entirely). Defined at module
-   scope so the landing's frequent re-renders (scroll state) never remount it
-   and reset the open accordion. */
+   tappable accordion row (CSS handles show/hide + chevron rotation purely from
+   aria-expanded). Module scope so landing re-renders never remount it. */
 function FootCol({ title, children }: { title: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="pl-foot-col">
+    <div className="lp-foot-col">
       <button
         type="button"
-        className="pl-foot-head"
+        className="lp-foot-head"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
       >
         {title}
-        <span className="pl-foot-chev" aria-hidden="true"><ChevronDown /></span>
+        <span className="lp-foot-chev" aria-hidden="true"><ChevronDown /></span>
       </button>
-      <div className="pl-foot-links-wrap">
-        <div className="pl-foot-links">{children}</div>
+      <div className="lp-foot-links-wrap">
+        <div className="lp-foot-links">{children}</div>
       </div>
     </div>
   );
@@ -102,9 +104,8 @@ export default function PublicLanding({
     const pageEl = document.querySelector(".page") as HTMLElement | null;
     const target = root.querySelector<HTMLElement>(`#${id}`);
     if (!pageEl || !target) return;
-    // Clear the sticky header; phones use a taller gap so titles land cleanly
-    // (mobile header is shorter but the section title needs breathing room).
-    const headerOffset = window.innerWidth <= 600 ? 84 : 70;
+    // Clear the sticky header; phones use a slightly taller gap.
+    const headerOffset = window.innerWidth <= 600 ? 80 : 72;
     const top =
       target.getBoundingClientRect().top -
       pageEl.getBoundingClientRect().top +
@@ -119,66 +120,50 @@ export default function PublicLanding({
     pageEl?.scrollTo({ top: 0, behavior: prefersReduced() ? "auto" : "smooth" });
   };
 
-  // Header scroll state + scroll-reveal + count-up + momentum bars — all on `.page`.
+  // Header scroll state + hero preview rise + scroll reveals — all on `.page`.
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const pageEl = document.querySelector(".page") as HTMLElement | null;
-const reduce = prefersReduced();
+    const reduce = prefersReduced();
 
-const onScroll = () => {
-  const pageTop = pageEl?.scrollTop ?? 0;
-  const windowTop = window.scrollY || 0;
-  setScrolled(Math.max(pageTop, windowTop) > 12);
-};
-
-onScroll();
-pageEl?.addEventListener("scroll", onScroll, { passive: true });
-window.addEventListener("scroll", onScroll, { passive: true });
-
-    const revealables = Array.from(root.querySelectorAll<HTMLElement>(".pl-reveal"));
-
-    // Count a number element from 0 up to its printed value, once.
-    const countUp = (el: HTMLElement) => {
-      if (el.dataset.counted) return;
-      el.dataset.counted = "1";
-      const target = parseFloat((el.textContent || "").replace(/[^\d.]/g, "")) || 0;
-      if (reduce || target === 0) return;
-      const dur = 900;
-      const t0 = performance.now();
-      const ease = (t: number) => 1 - Math.pow(1 - t, 3);
-      const tick = (now: number) => {
-        const p = Math.min(1, (now - t0) / dur);
-        el.textContent = String(Math.round(ease(p) * target));
-        if (p < 1) requestAnimationFrame(tick);
-        else el.textContent = String(target);
-      };
-      requestAnimationFrame(tick);
+    const onScroll = () => {
+      const pageTop = pageEl?.scrollTop ?? 0;
+      const windowTop = window.scrollY || 0;
+      setScrolled(Math.max(pageTop, windowTop) > 12);
     };
+    onScroll();
+    pageEl?.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll, { passive: true });
 
-    const fire = (el: HTMLElement) => {
-      if (el.classList.contains("pl-in")) return;
-      el.classList.add("pl-in");
-      el.querySelectorAll<HTMLElement>("[data-count]").forEach(countUp);
-      if (el.classList.contains("pl-dash-wide-wrap")) {
-        const bars = el.querySelector<HTMLElement>(".pl-bars");
-        if (bars) {
-          bars.querySelectorAll<HTMLElement>("i").forEach((b, i) =>
-            b.style.setProperty("--bd", i * 70 + "ms")
-          );
-          bars.classList.add("pl-in");
-        }
-      }
+    // Hero preview rise: starts tilted (CSS), flattens to face-on over the
+    // first ~420px of scroll. Transform-only; no-ops on mobile/reduced motion.
+    const pv = root.querySelector<HTMLElement>(".lp-preview-wrap");
+    let riseRaf = 0;
+    const onRise = () => {
+      if (!pv || reduce || window.innerWidth <= 600 || riseRaf) return;
+      riseRaf = requestAnimationFrame(() => {
+        riseRaf = 0;
+        const t = pageEl?.scrollTop ?? 0;
+        const p = Math.min(1, t / 420);
+        pv.style.transform = `perspective(1200px) rotateX(${(1 - p) * 6}deg) translateY(${(1 - p) * -8}px)`;
+      });
     };
+    pageEl?.addEventListener("scroll", onRise, { passive: true });
+    onRise();
+
+    const revealables = Array.from(root.querySelectorAll<HTMLElement>(".lp-reveal"));
+    const fire = (el: HTMLElement) => el.classList.add("lp-in");
 
     // Reduced motion (or no IO support): render final state immediately.
     if (reduce || !("IntersectionObserver" in window)) {
-      revealables.forEach((el) => el.classList.add("pl-in"));
-      root.querySelectorAll<HTMLElement>(".pl-bars").forEach((b) => b.classList.add("pl-in"));
+      revealables.forEach(fire);
       return () => {
-  pageEl?.removeEventListener("scroll", onScroll);
-  window.removeEventListener("scroll", onScroll);
-};
+        pageEl?.removeEventListener("scroll", onScroll);
+        window.removeEventListener("scroll", onScroll);
+        pageEl?.removeEventListener("scroll", onRise);
+        if (riseRaf) cancelAnimationFrame(riseRaf);
+      };
     }
 
     const io = new IntersectionObserver(
@@ -193,9 +178,9 @@ window.addEventListener("scroll", onScroll, { passive: true });
     );
     revealables.forEach((el) => io.observe(el));
 
-    // Above-the-fold must never depend solely on IO (it can be delayed or never
-    // fire in non-painting/capture contexts → blank hero). Reveal anything already
-    // in view on the first frame + on load, then force-reveal stragglers after ~1.4s.
+    // Safety net: above-the-fold must never depend solely on IO (it can be
+    // delayed in non-painting contexts → blank sections). Reveal anything
+    // already in view on the first frame + on window load.
     const revealInView = () => {
       const vTop = pageEl ? pageEl.getBoundingClientRect().top : 0;
       const vh = pageEl ? pageEl.clientHeight : window.innerHeight;
@@ -211,29 +196,30 @@ window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("load", revealInView);
 
     return () => {
-  pageEl?.removeEventListener("scroll", onScroll);
-  window.removeEventListener("scroll", onScroll);
-  io.disconnect();
-  window.removeEventListener("load", revealInView);
-  cancelAnimationFrame(raf);
-};
+      pageEl?.removeEventListener("scroll", onScroll);
+      window.removeEventListener("scroll", onScroll);
+      pageEl?.removeEventListener("scroll", onRise);
+      if (riseRaf) cancelAnimationFrame(riseRaf);
+      io.disconnect();
+      window.removeEventListener("load", revealInView);
+      cancelAnimationFrame(raf);
+    };
   }, []);
 
-  const Wordmark = ({ mk = "24px", sy = "10px" }: { mk?: string; sy?: string }) => (
-    <button className="pl-wordmark" onClick={scrollToTop} aria-label="MACP system — back to top">
-      <span className="mk" style={{ fontSize: mk }}>MACP</span>
-      <span className="sy" style={{ fontSize: sy }}>system</span>
+  const Wordmark = () => (
+    <button className="lp-wordmark" onClick={scrollToTop} aria-label="MACP system — back to top">
+      MACP<span>system</span>
     </button>
   );
 
   const PrimaryCTA = ({ className = "" }: { className?: string }) => (
     <button
-      className={`pl-btn-amber ${className}`}
+      className={`lp-btn-amber ${className}`}
       onClick={handleAssessmentClick}
       disabled={ctaLoading}
     >
       {ctaLoading ? (
-        <><span className="pl-spin" />Checking…</>
+        <><span className="lp-spin" />Checking…</>
       ) : (
         <>Build your system<ArrowRight /></>
       )}
@@ -241,34 +227,34 @@ window.addEventListener("scroll", onScroll, { passive: true });
   );
 
   return (
-    <div className="pl-root" ref={rootRef}>
+    <div className="lp-root" ref={rootRef}>
+      <style>{LANDING_STYLES}</style>
       <span id="top" />
 
       {/* ============================ HEADER ============================ */}
-      <header className={`pl-header ${scrolled ? "scrolled" : ""}`}>
-        <div className="pl-wrap pl-nav">
+      <header className={`lp-header ${scrolled ? "lp-scrolled" : ""}`}>
+        <div className="lp-wrap lp-nav">
           <Wordmark />
-          <nav className="pl-links">
+          <nav className="lp-links">
             <a onClick={() => scrollToSection("how")}>How it works</a>
             <a onClick={() => scrollToSection("features")}>Features</a>
-            <a onClick={() => scrollToSection("progress")}>Progress</a>
           </nav>
-          <div className="pl-actions">
+          <div className="lp-actions">
             <SignedOut>
-              <button className="pl-signin" onClick={() => onAuth("sign-in")}>Sign in</button>
+              <button className="lp-signin" onClick={() => onAuth("sign-in")}>Sign in</button>
             </SignedOut>
             <SignedIn>
-              {/* .pl-user wrapper lets the landing header hide the avatar on mobile */}
-              <span className="pl-user">
+              {/* .lp-user wrapper lets the landing header hide the avatar on mobile */}
+              <span className="lp-user">
                 <UserButton
                   afterSignOutUrl="/"
                   appearance={{ elements: { userButtonAvatarBox: { width: "30px", height: "30px" } } }}
                 />
               </span>
             </SignedIn>
-            <PrimaryCTA className="pl-header-cta" />
+            <PrimaryCTA className="lp-header-cta" />
             <button
-              className="pl-menu-toggle"
+              className="lp-menu-toggle"
               aria-label="Menu"
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen((v) => !v)}
@@ -280,10 +266,9 @@ window.addEventListener("scroll", onScroll, { passive: true });
           </div>
         </div>
         {menuOpen && (
-          <div className="pl-mobile-menu">
+          <div className="lp-mobile-menu">
             <a onClick={() => scrollToSection("how")}>How it works</a>
             <a onClick={() => scrollToSection("features")}>Features</a>
-            <a onClick={() => scrollToSection("progress")}>Progress</a>
             <SignedOut>
               <button onClick={() => { setMenuOpen(false); onAuth("sign-in"); }}>Sign in</button>
             </SignedOut>
@@ -292,80 +277,68 @@ window.addEventListener("scroll", onScroll, { passive: true });
       </header>
 
       {/* ============================ HERO ============================ */}
-      <section className="pl-hero">
-        <div className="pl-wrap pl-hero-grid">
-          <div className="pl-hero-copy">
-            <div className="pl-eyebrow pl-reveal" style={rd("60ms")}>Modular AI Coaching Platform</div>
-            <h1 className="pl-h1 pl-reveal" style={rd("140ms")}>
-              Build the system you actually <span className="pl-accent">return to.</span>
-            </h1>
-            <p className="pl-hero-sub pl-reveal" style={rd("220ms")}>
-              MACP turns your goals into a daily operating system — AI-built plans, today's frog,
-              progress signals, recovery when life happens, and weekly reviews that adapt the plan.
-            </p>
-            <div className="pl-cta-row pl-reveal" style={rd("300ms")}>
-              <PrimaryCTA />
-              <button className="pl-btn-ghost" onClick={() => scrollToSection("how")}>
-                See how it works<ChevronDown />
-              </button>
-            </div>
-            <div className="pl-trust pl-reveal" style={rd("380ms")}>
-              <div className="pl-trust-item"><span className="pl-trust-dot" /><span className="pl-trust-t">Built around daily execution</span></div>
-              <div className="pl-trust-item"><span className="pl-trust-dot" /><span className="pl-trust-t">Adapts when you miss days</span></div>
-              <div className="pl-trust-item"><span className="pl-trust-dot" /><span className="pl-trust-t">Made for long-term consistency</span></div>
-            </div>
+      <section className="lp-hero">
+        <div className="lp-hero-glow" aria-hidden="true" />
+        <div className="lp-wrap">
+          <div className="lp-badge lp-load" style={rd("60ms")}>
+            <span className="lp-dot" aria-hidden="true" />
+            Adapts every week — even the bad ones
+          </div>
+          <h1 className="lp-h1 lp-load" style={rd("120ms")}>
+            Consistency,<br />engineered.
+          </h1>
+          <p className="lp-hero-sub lp-load" style={rd("180ms")}>
+            MACP turns your goals into a daily operating system — one priority a
+            day, and a plan that rebalances when life happens.
+          </p>
+          <div className="lp-cta-row lp-load" style={rd("240ms")}>
+            <PrimaryCTA />
+            <button className="lp-btn-ghost" onClick={() => scrollToSection("how")}>
+              See how it works<ChevronDown />
+            </button>
           </div>
 
-          {/* dashboard preview — reuses the auth screen's apv-* classes (preview amber/green) */}
-          <div className="pl-dash-float pl-reveal" style={rd("240ms")}>
-            <div className="pl-pv">
-              <div className="auth-pv" role="img" aria-label="MACP dashboard preview">
-                <div className="apv-bar">
-                  <div className="apv-logo">MACP<span> system</span></div>
-                  <div className="apv-nav">
-                    <span className="on">DASHBOARD</span><span>CALENDAR</span><span>WEEKLY REVIEW</span>
-                  </div>
+          {/* dashboard preview — rises/flattens on scroll (handler in useEffect) */}
+          <div className="lp-preview-wrap lp-load-fade" style={rd("320ms")}>
+            <div
+              className="lp-preview"
+              role="img"
+              aria-label="MACP dashboard preview: today's frog, habit stats, streak and weekly consistency"
+            >
+              <div className="lp-pv-top">
+                <div>
+                  <div className="lp-pv-greet">Good morning, Sam</div>
+                  <div className="lp-pv-date">THURSDAY, JUNE 11</div>
                 </div>
-                <div className="apv-body">
-                  <div className="apv-greetrow">
-                    <div>
-                      <div className="apv-greet">Good afternoon, <em>Jarvis</em></div>
-                      <div className="apv-date">MONDAY, JUNE 1, 2026</div>
-                    </div>
-                    <div className="apv-tier"><span />TIER 1 · FOUNDATION</div>
-                  </div>
-                  <div className="apv-plan">
-                    <div className="apv-plan-top">
-                      <div className="apv-kicker">CURRENT PLAN</div>
-                      <div className="apv-badge">INITIAL</div>
-                    </div>
-                    <div className="apv-plan-name">Plan v1</div>
-                    <div className="apv-plan-meta">Tier 1 · Foundation · Working professional</div>
-                  </div>
-                  <div className="apv-stats">
-                    <div className="apv-stat">
-                      <div className="apv-stat-lbl">Habits Today</div>
-                      <div className="apv-stat-val"><span data-count>3</span><small> /5</small></div>
-                      <div className="apv-stat-foot g">On track</div>
-                    </div>
-                    <div className="apv-stat">
-                      <div className="apv-stat-lbl">Streak</div>
-                      <div className="apv-stat-val"><span data-count>6</span><small> days</small></div>
-                      <div className="apv-stat-foot a">Keep going</div>
-                    </div>
-                    <div className="apv-stat">
-                      <div className="apv-stat-lbl">This Week</div>
-                      <div className="apv-stat-val"><span data-count>72</span><small> %</small></div>
-                      <div className="apv-stat-foot">+12% vs last</div>
-                    </div>
-                  </div>
-                  <div className="apv-frog">
-                    <div className="apv-frog-lbl">🐸 EAT THE FROG · HIGHEST LEVERAGE</div>
-                    <div className="apv-frog-name">Practice a new skill for 5 minutes</div>
-                    <div className="apv-frog-row">
-                      <span className="apv-frog-cta">Mark Complete</span>
-                      <span className="apv-frog-ghost">Focus Mode · 25 min</span>
-                    </div>
+                <span className="lp-pv-tier">TIER 1 · FOUNDATION</span>
+              </div>
+              <div className="lp-pv-frog">
+                <div>
+                  <div className="lp-pv-frog-lbl">🐸 TODAY'S FROG · HIGHEST LEVERAGE</div>
+                  <div className="lp-pv-frog-name">Deep work on the proposal — 25 minutes</div>
+                </div>
+                <span className="lp-pv-frog-btn">Mark complete</span>
+              </div>
+              <div className="lp-pv-stats">
+                <div className="lp-pv-stat">
+                  <div className="lp-pv-stat-lbl">HABITS TODAY</div>
+                  <div className="lp-pv-stat-val">3<small> / 5</small></div>
+                  <div className="lp-pv-stat-foot g">On track</div>
+                </div>
+                <div className="lp-pv-stat">
+                  <div className="lp-pv-stat-lbl">STREAK</div>
+                  <div className="lp-pv-stat-val">6<small> days</small></div>
+                  <div className="lp-pv-stat-foot a">Keep going</div>
+                </div>
+                <div className="lp-pv-stat">
+                  <div className="lp-pv-stat-lbl">THIS WEEK</div>
+                  <div className="lp-pv-stat-val">72<small> %</small></div>
+                  <div className="lp-pv-bars" aria-hidden="true">
+                    <span style={{ height: "60%" }} />
+                    <span style={{ height: "85%" }} />
+                    <span style={{ height: "45%" }} />
+                    <span className="hi" style={{ height: "100%" }} />
+                    <span className="am" style={{ height: "70%" }} />
                   </div>
                 </div>
               </div>
@@ -374,198 +347,141 @@ window.addEventListener("scroll", onScroll, { passive: true });
         </div>
       </section>
 
-      {/* ============================ TRUST STRIP ============================ */}
-      <div className="pl-strip">
-        <div className="pl-wrap pl-strip-grid">
-          <div className="pl-strip-item pl-reveal" style={rd("0ms")}><div className="pl-label">01 — Generate</div><div className="pl-strip-t">AI plan generation</div></div>
-          <div className="pl-strip-item pl-reveal" style={rd("80ms")}><div className="pl-label">02 — Execute</div><div className="pl-strip-t">Daily frog priority</div></div>
-          <div className="pl-strip-item pl-reveal" style={rd("160ms")}><div className="pl-label">03 — Adapt</div><div className="pl-strip-t">Weekly review loop</div></div>
-          <div className="pl-strip-item pl-reveal" style={rd("240ms")}><div className="pl-label">04 — Recover</div><div className="pl-strip-t">Built-in recovery</div></div>
-        </div>
-      </div>
-
       {/* ============================ HOW IT WORKS ============================ */}
-      <section className="pl-block" id="how">
-        <div className="pl-wrap">
-          <div className="pl-section-head pl-reveal">
-            <div className="pl-eyebrow">How it works</div>
-            <h2>From a few questions to a system that <span className="pl-accent">runs your day.</span></h2>
-            <p>No blank slate, no endless setup. MACP builds the structure, then keeps it realistic as your weeks change.</p>
-          </div>
-          <div className="pl-steps">
-            <div className="pl-step pl-reveal" style={rd("0ms")}>
-              <div className="pl-num">STEP 01</div><div className="pl-line" />
+      <section className="lp-block" id="how">
+        <div className="lp-wrap">
+          <div className="lp-eyebrow lp-reveal">How it works</div>
+          <h2 className="lp-h2 lp-reveal" style={rd("60ms")}>
+            Three steps. Then the system runs.
+          </h2>
+          {/* row is a reveal only as the .lp-in hook for the line-draw ::before */}
+          <div className="lp-steps lp-reveal">
+            <div className="lp-step lp-reveal" style={rd("0ms")}>
+              <div className="lp-step-num">01</div>
               <h3>Answer a few questions</h3>
-              <p>Goals, schedule, friction, intensity, and the constraints you're actually working with.</p>
+              <p>Your goals, your schedule, and the constraints you're actually working with.</p>
             </div>
-            <div className="pl-step pl-reveal" style={rd("90ms")}>
-              <div className="pl-num">STEP 02</div><div className="pl-line" />
-              <h3>Get your AI system</h3>
-              <p>Habits, milestones, tiers, today's frog, and a weekly focus — built around your real life.</p>
+            <div className="lp-step lp-reveal" style={rd("120ms")}>
+              <div className="lp-step-num">02</div>
+              <h3>Get your system</h3>
+              <p>AI builds the plan: habits, milestones, tiers, and your first frog.</p>
             </div>
-            <div className="pl-step pl-reveal" style={rd("180ms")}>
-              <div className="pl-num">STEP 03</div><div className="pl-line" />
-              <h3>Execute today's frog</h3>
-              <p>One highest-leverage action gets priority. Do that first; the rest follows.</p>
-            </div>
-            <div className="pl-step pl-reveal" style={rd("270ms")}>
-              <div className="pl-num">STEP 04</div><div className="pl-line" />
-              <h3>Review and adapt weekly</h3>
-              <p>Momentum, misses, and recovery feed the next adjustment. The plan stays honest.</p>
+            <div className="lp-step lp-reveal" style={rd("240ms")}>
+              <div className="lp-step-num lp-amber">03</div>
+              <h3>Run your day</h3>
+              <p>One priority a day, a review every week — and recovery built in when you miss.</p>
             </div>
           </div>
         </div>
       </section>
 
       {/* ============================ FEATURES ============================ */}
-      <section className="pl-block" id="features">
-        <div className="pl-wrap">
-          <div className="pl-feature-grid">
-            <div className="pl-section-head pl-reveal">
-              <div className="pl-eyebrow">What's inside the system</div>
-              <h2>A command surface for the person you're <span className="pl-accent">becoming.</span></h2>
-              <p>Five working parts, one calm surface. Amber signals what's live; green marks what's done or recovered.</p>
-            </div>
-
-            {/* The five real working parts of MACP, shown as premium stacked
-                modules (NOT a fake app screen). This is the main feature visual. */}
-            <div className="pl-modules-wrap pl-reveal">
-              <div className="pl-modules" role="img" aria-label="The five MACP system modules: AI Plan, Today's Frog, Weekly Review, Recovery, and Progress History">
-                <div className="pl-modules-cap">
-                  <span className="pl-modules-cap-lbl">The MACP system</span>
-                  <span className="pl-modules-cap-meta">5 connected modules</span>
+      <section className="lp-block" id="features">
+        <div className="lp-wrap">
+          <div className="lp-eyebrow lp-reveal">What's inside</div>
+          <h2 className="lp-h2 lp-reveal" style={rd("60ms")}>
+            Five parts, one calm surface.
+          </h2>
+          <div className="lp-bento">
+            <div className="lp-cell lp-reveal" style={rd("0ms")}>
+              <h3>AI Plan</h3>
+              <p>Personalized habits, tiers and milestones, generated from your goals — not a template.</p>
+              <div className="lp-mini-plan" aria-hidden="true">
+                <div className="lp-mini-plan-top">
+                  <span>CURRENT PLAN</span>
+                  <span className="lp-mini-badge">v1 · INITIAL</span>
                 </div>
-
-                <div className="pl-module">
-                  <div className="pl-module-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l1.9 4.6L18.5 9.5 13.9 11.4 12 16l-1.9-4.6L5.5 9.5 10.1 7.6z" /><path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></svg>
-                  </div>
-                  <div className="pl-module-main">
-                    <div className="pl-module-name">AI Plan</div>
-                    <div className="pl-module-desc">Personalized habits, tiers and milestones, generated from your goals.</div>
-                  </div>
-                  <div className="pl-module-tag">Generate</div>
-                </div>
-
-                <div className="pl-module green">
-                  <div className="pl-module-icon"><span className="pl-frog-emoji">🐸</span></div>
-                  <div className="pl-module-main">
-                    <div className="pl-module-name">Today's Frog</div>
-                    <div className="pl-module-desc">Your single highest-leverage action, prioritized for the day.</div>
-                  </div>
-                  <div className="pl-module-tag">Daily</div>
-                </div>
-
-                <div className="pl-module">
-                  <div className="pl-module-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><polyline points="3 3 3 8 8 8" /><polyline points="12 7 12 12 15 14" /></svg>
-                  </div>
-                  <div className="pl-module-main">
-                    <div className="pl-module-name">Weekly Review</div>
-                    <div className="pl-module-desc">Reflect, score the week, and re-tune the plan on schedule.</div>
-                  </div>
-                  <div className="pl-module-tag">Weekly</div>
-                </div>
-
-                <div className="pl-module green">
-                  <div className="pl-module-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9 9 0 0 0-9 9z" /><polyline points="3 4.5 3 9 7.5 9" /><path d="m9 12 2 2 4-4" /></svg>
-                  </div>
-                  <div className="pl-module-main">
-                    <div className="pl-module-name">Recovery</div>
-                    <div className="pl-module-desc">Miss a day and the plan rebalances — resume without restarting.</div>
-                  </div>
-                  <div className="pl-module-tag">Adaptive</div>
-                </div>
-
-                <div className="pl-module">
-                  <div className="pl-module-icon">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="m7 14 4-4 3 3 5-6" /></svg>
-                  </div>
-                  <div className="pl-module-main">
-                    <div className="pl-module-name">Progress History</div>
-                    <div className="pl-module-desc">Streaks, consistency and momentum tracked over time.</div>
-                  </div>
-                  <div className="pl-module-tag">Trend</div>
-                </div>
+                <div className="lp-mini-plan-name">Ship the side project</div>
+                <div className="lp-mini-plan-meta">Tier 1 · Foundation · 5 habits</div>
+                <div className="lp-mini-plan-segs"><span className="on" /><span /><span /></div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ============================ COMMAND SURFACE PROOF ============================ */}
-      <section className="pl-block" id="progress">
-        <div className="pl-wrap">
-          <div className="pl-surface-grid">
-            {/* Reserved visual slot for a future product preview — intentionally
-                minimal dark space with a soft glow (no fake dashboard, no
-                placeholder text). Hidden on mobile so it never leaves a blank gap. */}
-            <div className="pl-future-slot pl-reveal" aria-hidden="true" />
-
-            <div className="pl-callouts">
-              <div className="pl-section-head pl-reveal" style={{ marginBottom: 14 }}>
-                <div className="pl-eyebrow">The command surface</div>
-                <h2 className="pl-h2-sm">Your whole system, on one <span className="pl-accent">surface.</span></h2>
+            <div className="lp-cell lp-reveal" style={rd("70ms")}>
+              <div className="lp-cell-emoji" aria-hidden="true">🐸</div>
+              <h3>Today's Frog</h3>
+              <p>Your single highest-leverage action, chosen daily. Do it first — the rest follows.</p>
+              <div className="lp-mini-frog" aria-hidden="true">
+                <div className="lp-mini-frog-name">Deep work — 25 min</div>
+                <div className="lp-mini-frog-done">✓ Completed 8:42 AM</div>
               </div>
-              <div className="pl-callout pl-reveal" style={rd("0ms")}><div className="pl-label">Current plan</div><h4>Your tier, at a glance</h4><p>Plan version, tier, and focus — always the first thing you see.</p></div>
-              <div className="pl-callout pl-reveal" style={rd("80ms")}><div className="pl-label">Consistency</div><h4>Momentum you can read</h4><p>Daily completion charted across the week, amber for live, green for done.</p></div>
-              <div className="pl-callout pl-reveal" style={rd("160ms")}><div className="pl-label">Weekly review</div><h4>A standing appointment</h4><p>Reflect and re-tune on schedule, so the plan never drifts from reality.</p></div>
-              <div className="pl-callout pl-reveal" style={rd("240ms")}><div className="pl-label">Recovery signal</div><h4>One bad day isn't a reset</h4><p>Miss a day and the system rebalances — you resume, you don't restart.</p></div>
+            </div>
+
+            <div className="lp-cell lp-cell-green lp-reveal" style={rd("140ms")}>
+              <div className="lp-badge lp-badge-sm">
+                <span className="lp-dot" aria-hidden="true" />Recovery
+              </div>
+              <h3>One bad day isn't a reset.</h3>
+              <p>Miss a day and the plan rebalances around it. You resume — you don't restart. This is what most habit apps get wrong.</p>
+              <div
+                className="lp-rbars"
+                role="img"
+                aria-label="Weekly chart showing a missed Wednesday recovering to full consistency by Friday"
+              >
+                <span style={rd2("70%", "0ms")} />
+                <span style={rd2("85%", "60ms")} />
+                <span className="miss" style={rd2("20%", "120ms")} />
+                <span className="rec" style={rd2("55%", "180ms")} />
+                <span className="rec2" style={rd2("75%", "240ms")} />
+                <span className="full" style={rd2("90%", "300ms")} />
+              </div>
+              <div className="lp-rbars-cap" aria-hidden="true">missed wednesday → recovered by friday</div>
+            </div>
+
+            <div className="lp-cell-stack">
+              <div className="lp-cell lp-reveal" style={rd("210ms")}>
+                <h3>Weekly Review</h3>
+                <p>Score the week, reflect, and let the plan re-tune itself on schedule.</p>
+              </div>
+              <div className="lp-cell lp-reveal" style={rd("280ms")}>
+                <h3>Progress History</h3>
+                <p>Streaks, consistency and momentum, tracked over months — not just today.</p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* ============================ FINAL CTA ============================ */}
-      <section className="pl-final">
-        <div className="pl-wrap">
-          <div className="pl-final-inner pl-reveal">
-            <div className="pl-eyebrow">Set your standard</div>
-            <h2>Your system is built when you <span className="pl-accent">start.</span></h2>
-            <p>Answer a few questions. Get your first AI plan in minutes.</p>
-            <PrimaryCTA />
-          </div>
+      <section className="lp-final">
+        <div className="lp-final-glow" aria-hidden="true" />
+        <div className="lp-wrap lp-reveal">
+          <h2 className="lp-h2">Your system is built<br />the moment you start.</h2>
+          <p>A few questions. Your first AI plan in minutes. Free to begin.</p>
+          <PrimaryCTA />
         </div>
       </section>
 
       {/* ============================ FOOTER ============================ */}
-      <footer className="pl-footer">
-        {/* main grid — brand · product · account · legal */}
-        <div className="pl-wrap pl-foot-main">
-          <div className="pl-foot-brand">
-            <Wordmark mk="22px" sy="9px" />
-            <p className="pl-foot-sub">AI habit systems, built for execution.</p>
-            <p className="pl-foot-mission">
-              MACP helps you turn goals into a daily operating system — AI-built plans,
-              today's frog, recovery when life happens, and weekly reviews that keep
-              the system realistic.
+      <footer className="lp-footer">
+        <div className="lp-wrap lp-foot-main">
+          <div className="lp-foot-brand">
+            <Wordmark />
+            <p className="lp-foot-sub">
+              AI habit systems, built for execution. One priority a day,
+              recovery when life happens.
             </p>
           </div>
-
-          <FootCol title="Product">
-            <a onClick={() => scrollToSection("how")}>How it works</a>
-            <a onClick={() => scrollToSection("features")}>Features</a>
-            <a onClick={() => scrollToSection("progress")}>Progress</a>
-          </FootCol>
-
-          <FootCol title="Account">
-            <SignedOut><a onClick={() => onAuth("sign-in")}>Sign in</a></SignedOut>
-            <a onClick={handleAssessmentClick}>Build your system</a>
-          </FootCol>
-
-          <FootCol title="Legal">
-            <a onClick={() => onTrust("privacy")}>Privacy</a>
-            <a onClick={() => onTrust("terms")}>Terms</a>
-            <a onClick={() => onTrust("support")}>Support</a>
-            <a onClick={() => onTrust("ai-disclaimer")}>AI Disclaimer</a>
-          </FootCol>
+          <div className="lp-foot-cols">
+            <FootCol title="Product">
+              <a onClick={() => scrollToSection("how")}>How it works</a>
+              <a onClick={() => scrollToSection("features")}>Features</a>
+            </FootCol>
+            <FootCol title="Account">
+              <SignedOut><a onClick={() => onAuth("sign-in")}>Sign in</a></SignedOut>
+              <a onClick={handleAssessmentClick}>Build your system</a>
+            </FootCol>
+            <FootCol title="Legal">
+              <a onClick={() => onTrust("privacy")}>Privacy</a>
+              <a onClick={() => onTrust("terms")}>Terms</a>
+              <a onClick={() => onTrust("support")}>Support</a>
+              <a onClick={() => onTrust("ai-disclaimer")}>AI Disclaimer</a>
+            </FootCol>
+          </div>
         </div>
-
-        {/* bottom row — copyright · AI disclaimer */}
-        <div className="pl-wrap pl-foot-base">
-          <span className="pl-foot-copy">© 2026 MACP</span>
-          <span className="pl-foot-note">AI habit guidance · Use your judgment</span>
+        <div className="lp-wrap lp-foot-base">
+          <span>© 2026 MACP</span>
+          <span>AI habit guidance · Use your judgment</span>
         </div>
       </footer>
     </div>
