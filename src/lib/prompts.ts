@@ -7,7 +7,6 @@ import { buildModeBlock, type PlanMode } from "./planModes";
 
 export const PLAN_PROMPT_VERSION = "plan-v3.1";
 export const REVIEW_PROMPT_VERSION = "review-v2";
-export const RECOVERY_PROMPT_VERSION = "recovery-v2";
 
 export function buildPlanPrompt(
   profile: any,
@@ -220,95 +219,64 @@ If days were missed: a 2-minute minimum restart and a never-miss-twice rule. No 
 Keep the whole review around 200–260 words.`;
 }
 
-export interface RecoverySignals {
-  weekCompletion?: number;
-  streak?: number;
-  savedDays?: number;
-  weekPcts?: number[];
-  frogDone?: boolean;
-  mostMissedHabits?: string;
-  planMode?: string;
-  tierLabel?: string;
-  week?: number;
-  planFocus?: string;
-  latestReviewInsight?: string;
+
+export const REPLAN_PROMPT_VERSION = "replan-v1";
+
+export interface ReplanHabitStat {
+  id: string;
+  name: string;
+  priority: number;
+  time: string | null;
+  window: string | null;
+  days: number[];
+  completionRate14d: number; // 0..1, only counting days the habit was scheduled
 }
 
-export function buildRecoveryPrompt(
+export function buildReplanPrompt(
   profile: any,
-  signals: RecoverySignals = {}
+  schedule: { wake?: string; sleep?: string; blocks?: { label: string; days: number[]; start: string; end: string }[] } | null,
+  habits: ReplanHabitStat[]
 ): string {
-  const name = profile?.name || "there";
-  const mode = signals.planMode || "general";
-  const tierLabel = signals.tierLabel || "Tier 1 · Foundation";
-  const week = signals.week || profile?.week || 1;
-  const weekCompletion = typeof signals.weekCompletion === "number" ? signals.weekCompletion : null;
-  const streak = typeof signals.streak === "number" ? signals.streak : null;
-  const savedDays = typeof signals.savedDays === "number" ? signals.savedDays : null;
-  const frogDone = signals.frogDone ?? false;
-  const missedHabits = signals.mostMissedHabits || "not available";
-  const planFocus = signals.planFocus || "not specified";
-  const latestInsight = signals.latestReviewInsight || "";
+  const blocks =
+    schedule?.blocks?.length
+      ? schedule.blocks
+          .map((b) => `${b.label}: days ${b.days.join(",")} ${b.start}-${b.end}`)
+          .join("; ")
+      : "none specified";
 
-  const modeContext: Record<string, string> = {
-    general: "Focus on routine repair — restore one consistent anchor habit and the frog task.",
-    fitness: "Prioritize energy and recovery: even a 10-minute workout or walk counts. Protect sleep.",
-    exam: "Restart with one minimum viable study block (25 min active recall) before anything else.",
-    college: "Identify the most pressing deadline and clear 90 minutes for it — ignore everything else.",
-    deep_work: "Reset your distraction environment first, then protect one 60-minute focus block per day.",
-  };
-  const modeLine = modeContext[mode] || modeContext["general"];
+  const habitLines = habits
+    .map(
+      (h) =>
+        `- id=${h.id} | "${h.name}" | P${h.priority} | ${h.time ?? h.window ?? "anytime"} | days ${h.days.join(",")} | 14-day completion ${(h.completionRate14d * 100).toFixed(0)}%`
+    )
+    .join("\n");
 
-  const weekPtsSummary =
-    Array.isArray(signals.weekPcts) && signals.weekPcts.length === 7
-      ? signals.weekPcts
-          .map((pct, i) => {
-            const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-            return pct > 0 ? `${labels[i]} ${pct}%` : `${labels[i]} —`;
-          })
-          .join(", ")
-      : "";
+  return `You are MACP's execution coach. The user pressed "Replan": review their habit system and propose targeted changes. You may only ADD, UPDATE, or REMOVE habits — never rewrite everything. Keep what works (high completion), fix what doesn't (low completion: shrink it, retime it, or remove it). Stay within the user's schedule and constraints.
 
-  return `You are the MACP recovery coach. Generate a short, practical recovery brief for this user.
+USER CONTEXT:
+- Main goal: ${profile?.mainGoal || "Not specified"}
+- Constraints (HARD limits): ${profile?.constraints || "None"}
+- Typical failure pattern: ${profile?.failurePattern || "Not specified"}
+- Wake: ${schedule?.wake || profile?.wakeTime || "?"} | Sleep: ${schedule?.sleep || profile?.sleepTime || "?"}
+- Busy blocks (never schedule inside these): ${blocks}
 
-USER: ${name} | ${tierLabel} | Week ${week} | Plan mode: ${mode}
+CURRENT HABITS (with 14-day completion rates on scheduled days):
+${habitLines || "- none yet — propose a starter set of 3-5 habits"}
 
-CURRENT SIGNALS:
-- Week habit completion: ${weekCompletion !== null ? `${weekCompletion}%` : "unknown"}
-- Days logged this week: ${savedDays !== null ? `${savedDays} of 7` : "unknown"}
-- Current streak: ${streak !== null ? `${streak} day(s)` : "unknown"}
-- Daily pattern: ${weekPtsSummary || "not available"}
-- Most-missed habits: ${missedHabits}
-- Frog/keystone task done today: ${frogDone ? "yes" : "no"}
-- Plan weekly focus: ${planFocus}
-${latestInsight ? `- Last review note: "${latestInsight.slice(0, 300).replace(/\n/g, " ")}"` : ""}
+Return ONLY this JSON (no markdown fences):
+{
+  "summary": "<2-3 sentences: what you changed and why, in plain language>",
+  "changes": [
+    { "type": "add", "habit": { "name": "<specific habit>", "emoji": "<one emoji or null>", "priority": 1, "time": "HH:MM or null", "window": "morning|afternoon|evening|anytime or null", "days": [0,1,2,3,4,5,6], "subtasks": ["<optional subtask names>"] }, "reason": "<max 15 words>" },
+    { "type": "update", "id": "<existing habit id>", "habit": { "name": "...", "priority": 2, "time": null, "window": "evening", "days": [1,2,3,4,5] }, "reason": "<max 15 words>" },
+    { "type": "remove", "id": "<existing habit id>", "reason": "<max 15 words>" }
+  ]
+}
 
-USER PSYCHOLOGY (from their assessment — use it):
-- Their typical failure pattern: ${profile?.failurePattern || "Not specified"}
-- Their biggest struggle: ${profile?.struggle || "Not specified"}
-- What keeps them going: ${profile?.motivationStyle || "Not specified"}
-
-MODE GUIDANCE: ${modeLine}
-
-Write a recovery brief using EXACTLY these section headers (all uppercase, each on its own line):
-
-RECOVERY SNAPSHOT
-One honest sentence on where they actually are right now. No drama.
-
-TOP BOTTLENECK
-The single biggest friction point. Name a specific habit or behavior if one was missed — don't be vague.
-
-NEXT 72 HOURS
-3 concrete micro-actions for the next 3 days. Small, specific, doable without perfect conditions.
-
-FALLBACK RULE
-If things slip again today: one non-negotiable minimum action that keeps the streak alive.
-
-RULES:
-- Never say the user failed or is behind.
-- This is NOT a new full plan — it is a short recalibration.
-- If a failure pattern is specified, the FALLBACK RULE must directly counter it (e.g. "one missed day becomes a missed week" → a never-miss-twice rule; "all-or-nothing" → an explicit 2-minute minimum that still counts).
-- Frame encouragement in their motivation language (streaks, identity, accountability, quick wins, or challenge).
-- Use second person. Be direct and warm.
-- Keep the entire output between 150 and 220 words.`;
+Rules:
+- 0 to 6 changes total. Days use 0=Sunday..6=Saturday. priority is 1 (must-do), 2, or 3. If the current system already works, return an empty changes array and say so in the summary.
+- "time" must be HH:MM 24h or null; when time is set, window must be null.
+- Never place a timed habit inside a busy block. Respect wake/sleep.
+- For "update", include ONLY the habit fields you are changing plus name.
+- Prefer shrinking a failing habit over removing it; remove only when it clearly conflicts with the goal or schedule.`;
 }

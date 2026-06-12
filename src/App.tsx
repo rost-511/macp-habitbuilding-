@@ -5,7 +5,7 @@ import { useEntitlement } from "./lib/entitlements";
 import { UpgradePlaceholder } from "./components/PremiumGate";
 import PublicLanding from "./components/PublicLanding";
 import TrustPage, { type TrustPageKey } from "./components/TrustPage";
-import { buildPlanPrompt, PLAN_PROMPT_VERSION } from "./lib/prompts";
+import { buildPlanPrompt, PLAN_PROMPT_VERSION, buildReplanPrompt, REPLAN_PROMPT_VERSION } from "./lib/prompts";
 import { normalizePlanMode } from "./lib/planModes";
 import {
   getMyProfile,
@@ -21,13 +21,14 @@ import {
   getWeeklyReviews,
 } from "./lib/userData";
 import { STYLES } from "./styles/appStyles";
-import { tierFor, fmtSecs, parseInsightSections } from "./lib/helpers";
+import { tierFor, parseInsightSections } from "./lib/helpers";
 import { MacpLoader } from "./components/app/MacpLoader";
 import { Wizard } from "./components/app/Wizard";
 import { CalendarPage } from "./components/app/CalendarPage";
 import { Settings } from "./components/app/Settings";
 import { WeeklyReview } from "./components/app/WeeklyReview";
-import { Dashboard } from "./components/app/Dashboard";
+import { TodayApp } from "./components/today/TodayApp";
+import * as habitsData from "./lib/habitsData";
 
 /* ─────────────────────────────────────────────────────────────────────────────
    API — STREAMING CLAUDE
@@ -84,54 +85,6 @@ onDone(data.text);
   }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────────
-   FOCUS MODE TIMER
-───────────────────────────────────────────────────────────────────────────── */
-function FocusMode({ task, onExit, onDone }) {
-  const TOTAL = 25*60;
-  const [secs, setSecs] = useState(TOTAL);
-  const [running, setRunning] = useState(false);
-  const ref = useRef(null);
-
-  useEffect(() => {
-    if (running) ref.current = setInterval(() => setSecs(s => s > 0 ? s-1 : 0), 1000);
-    else clearInterval(ref.current);
-    return () => clearInterval(ref.current);
-  }, [running]);
-
-  const pct = (TOTAL - secs) / TOTAL;
-  const r = 58, circ = 2*Math.PI*r;
-  const dash = circ * (1-pct);
-
-  return (
-    <div className="focus-overlay" onClick={e => e.target===e.currentTarget && onExit()}>
-      <div className="focus-label">🐸 FOCUS MODE · 25-MIN POMODORO</div>
-      <div className="focus-task">"{task}"</div>
-
-      <div className="focus-ring-wrap" style={{width:140,height:140}}>
-        <svg width="140" height="140" style={{transform:"rotate(-90deg)"}}>
-          <circle cx="70" cy="70" r={r} fill="none" stroke="var(--border2)" strokeWidth="8"/>
-          <circle cx="70" cy="70" r={r} fill="none" stroke="var(--green)" strokeWidth="8"
-            strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={dash}
-            style={{transition:"stroke-dashoffset 1s linear"}}/>
-        </svg>
-        <div className="focus-ring-center" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"var(--font-mono)",fontSize:"1.4rem",color:"var(--green)"}}>
-          {fmtSecs(secs)}
-        </div>
-      </div>
-
-      <div className="focus-controls">
-        {secs > 0
-          ? <button className="focus-ctrl focus-start" onClick={() => setRunning(r=>!r)}>
-              {running ? "⏸ Pause" : (secs===TOTAL ? "▶ Start" : "▶ Resume")}
-            </button>
-          : <button className="focus-done" onClick={onDone}>✓ Complete Frog Task</button>
-        }
-        <button className="focus-ctrl focus-exit" onClick={onExit}>Exit</button>
-      </div>
-    </div>
-  );
-}
 
 /* ─────────────────────────────────────────────────────────────────────────────
    STAR RATING
@@ -1130,7 +1083,8 @@ const intendedFromAuthRef = useRef(false);
     setScreen("wizard");
   };
   const APP_SCREENS = ["dashboard", "calendar", "review", "settings"];
-const showAppNav = profile && APP_SCREENS.includes(screen);
+// TodayApp renders its own bar; the legacy topbar serves the other app screens.
+const showAppNav = profile && APP_SCREENS.includes(screen) && screen !== "dashboard";
 
 const NAV = showAppNav
   ? [
@@ -1187,7 +1141,7 @@ const NAV = showAppNav
       <style>{STYLES}</style>
       <div className={`app-shell grain ${isPublicScreen ? "landing-shell" : ""}`}>
         {/* Top bar — hidden on public pages (landing + trust pages ship their own header) */}
-        {!isPublicScreen && (
+        {!isPublicScreen && screen !== "dashboard" && (
         <div className={`topbar ${["wizard", "generating"].includes(screen) ? "flow-topbar" : ""}`}>
   <div
     className="topbar-logo"
@@ -1267,17 +1221,20 @@ const NAV = showAppNav
           {profile && ["dashboard", "calendar", "review", "settings"].includes(screen) && (
   <>
     <div style={{ display: screen === "dashboard" ? "block" : "none" }}>
-      <Dashboard
+      <TodayApp
         profile={profile}
-        setProfile={setProfile}
         plan={plan}
         supabase={supabase}
         userId={userId}
-        saveTodayProgress={saveTodayProgress}
+        data={habitsData}
         getTodayProgress={getTodayProgress}
+        saveTodayProgress={saveTodayProgress}
         getProgressMonth={getProgressMonth}
+        getProgressByDate={getProgressByDate}
         streamClaude={streamClaude}
-        FocusMode={FocusMode}
+        buildReplanPrompt={buildReplanPrompt}
+        replanPromptVersion={REPLAN_PROMPT_VERSION}
+        onNavigate={(s: string) => setScreen(s)}
       />
     </div>
 

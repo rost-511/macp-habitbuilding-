@@ -143,7 +143,8 @@ function todayKey() {
 
 export async function getTodayProgress(
   supabase: SupabaseClient,
-  clerkUserId: string
+  clerkUserId: string,
+  dateKey?: string
 ) {
   // Order by updated_at desc and limit 1 so the UI stays usable even if a
   // legacy duplicate row exists for (clerk_user_id, progress_date).
@@ -151,7 +152,7 @@ export async function getTodayProgress(
     .from("daily_progress")
     .select("*")
     .eq("clerk_user_id", clerkUserId)
-    .eq("progress_date", todayKey())
+    .eq("progress_date", dateKey ?? todayKey())
     .order("updated_at", { ascending: false })
     .limit(1);
 
@@ -165,21 +166,24 @@ export async function saveTodayProgress(
   payload: {
     checked?: Record<string, boolean>;
     frog_done?: boolean;
+    subchecked?: Record<string, Record<string, boolean>>;
     energy?: string | null;
     habits_snapshot?: unknown[];
     plan_snapshot?: Record<string, unknown> | null;
     plan_version?: number | null;
     plan_generated_at?: string | null;
     plan_reason?: string | null;
-  }
+  },
+  dateKey?: string
 ) {
   const { data, error } = await supabase
     .from("daily_progress")
     .upsert(
       {
         clerk_user_id: clerkUserId,
-        progress_date: todayKey(),
+        progress_date: dateKey ?? todayKey(),
         checked: payload.checked ?? {},
+        subchecked: payload.subchecked ?? {},
         frog_done: payload.frog_done ?? false,
         energy: payload.energy ?? null,
         habits_snapshot: payload.habits_snapshot ?? [],
