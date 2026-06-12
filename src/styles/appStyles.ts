@@ -1038,6 +1038,68 @@ body,#root{
 .dash-greet{font-family:var(--font-display);font-size:2.4rem;font-weight:700;line-height:1;letter-spacing:-.01em}
 .dash-greet span{color:var(--amber)}
 .dash-date{font-family:var(--font-mono);font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);margin-top:8px}
+.dash-identity{
+  font-family:var(--font-display);font-style:italic;font-size:1.02rem;color:var(--text-mid);
+  margin-top:10px;max-width:560px;line-height:1.45;
+}
+
+/* Now / Next command strip */
+.now-strip{
+  display:flex;align-items:stretch;gap:0;margin-bottom:20px;
+  background:linear-gradient(135deg,rgba(212,146,42,0.07),var(--surface) 55%);
+  border-color:rgba(212,146,42,0.22);
+}
+.ns-seg{flex:1;min-width:0;padding:16px 20px}
+.ns-next{border-left:1px solid var(--border);flex:0.75}
+.ns-eyebrow{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);margin-bottom:6px}
+.ns-next .ns-eyebrow{color:var(--text-dim)}
+.ns-title{font-family:var(--font-display);font-size:1.25rem;font-weight:700;line-height:1.15;color:var(--text);overflow:hidden;text-overflow:ellipsis}
+.ns-sub{font-size:.76rem;color:var(--text-mid);margin-top:5px;line-height:1.5}
+.ns-peak{
+  display:flex;align-items:center;gap:8px;align-self:center;flex-shrink:0;
+  margin:0 16px;padding:7px 13px;border-radius:99px;
+  border:1px solid var(--border2);background:var(--surface2);
+  font-family:var(--font-mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-mid);
+  white-space:nowrap;
+}
+.ns-peak.live{border-color:rgba(212,146,42,0.6);background:var(--amber-dim);color:var(--amber)}
+.ns-peak-dot{width:6px;height:6px;border-radius:50%;background:var(--text-dim);flex-shrink:0}
+.ns-peak.live .ns-peak-dot{background:var(--amber)}
+
+/* Frog timing hint */
+.frog-when{
+  font-family:var(--font-mono);font-size:.66rem;letter-spacing:.06em;color:#3d9e6a;
+  margin:-8px 0 18px;
+}
+
+/* Mission card */
+.mission-goal{display:flex;flex-direction:column;gap:4px;padding:10px 0;border-bottom:1px solid var(--border)}
+.mission-goal:last-of-type{border-bottom:none}
+.mission-goal:first-child{padding-top:0}
+.mission-lbl{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--amber)}
+.mission-val{font-size:.9rem;color:var(--text);line-height:1.55}
+.mission-brief{
+  margin-top:14px;padding-top:14px;border-top:1px solid var(--border);
+  font-family:var(--font-mono);font-size:.78rem;line-height:1.75;color:var(--text-mid);
+  white-space:pre-wrap;max-height:340px;overflow-y:auto;
+}
+
+/* Habit "why" subline */
+.habit-why{font-size:.72rem;color:var(--text-dim);line-height:1.4;margin-top:2px;font-weight:400}
+
+/* Planned Around You */
+.pa-list{display:flex;flex-direction:column;gap:0}
+.pa-row{display:flex;gap:12px;justify-content:space-between;align-items:baseline;padding:8px 0;border-bottom:1px solid var(--border)}
+.pa-row:first-child{padding-top:0}
+.pa-row:last-child{border-bottom:none;padding-bottom:0}
+.pa-lbl{font-family:var(--font-mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--text-dim);flex-shrink:0}
+.pa-val{font-size:.78rem;color:var(--text-mid);text-align:right;line-height:1.5;overflow-wrap:anywhere}
+
+/* Peak badge in daily flow */
+.tl-peak{
+  font-family:var(--font-mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--amber);background:var(--amber-dim);border-radius:4px;padding:2px 6px;margin-left:7px;
+}
 .tier-pill{
   display:flex;align-items:center;gap:9px;
   background:var(--surface);border:1px solid var(--border2);border-radius:99px;padding:9px 18px;
@@ -1924,6 +1986,10 @@ body,#root{
   .dash-greet{font-size:1.6rem}
   .dash-date{letter-spacing:.08em}
   .dgrid{grid-template-columns:1fr}
+  .now-strip{flex-direction:column}
+  .ns-next{border-left:none;border-top:1px solid var(--border)}
+  .ns-peak{align-self:flex-start;margin:0 20px 16px}
+  .dash-identity{font-size:.92rem}
   .dright{position:static}
   .land-h1{font-size:3rem}
   .star-grid{

@@ -11,6 +11,19 @@ export function tierFor(week) {
                   return { label:"Tier 3 · Optimized", color:"#2d9e5f", level:3 };
 }
 
+// Peak focus window metadata for onboarding v2 peakFocusTime values.
+// Returns null for unknown/missing values (old saved users).
+export function peakWindowMeta(v: unknown): { label: string; short: string; startMin: number; endMin: number } | null {
+  const map: Record<string, { label: string; short: string; startMin: number; endMin: number }> = {
+    early_morning: { label: "Early morning (5–8)", short: "5:00–8:00",  startMin: 5 * 60,  endMin: 8 * 60 },
+    morning:       { label: "Morning (8–12)",      short: "8:00–12:00", startMin: 8 * 60,  endMin: 12 * 60 },
+    afternoon:     { label: "Afternoon (12–17)",   short: "12:00–17:00",startMin: 12 * 60, endMin: 17 * 60 },
+    evening:       { label: "Evening (17–21)",     short: "17:00–21:00",startMin: 17 * 60, endMin: 21 * 60 },
+    night:         { label: "Night (21–1)",        short: "21:00–1:00", startMin: 21 * 60, endMin: 25 * 60 },
+  };
+  return typeof v === "string" && map[v] ? map[v] : null;
+}
+
 export function pickSmartNudge(s: {
   doneCount: number;
   totalHabits: number;
@@ -20,12 +33,23 @@ export function pickSmartNudge(s: {
   energy: string | null;
   nowMin: number;
   insights: string[];
+  motivationStyle?: string;
+  failurePattern?: string;
 }): { icon: string; text: string } | null {
   if (s.energy === "low") return null;
   if (s.totalHabits > 0 && s.doneCount === s.totalHabits && s.frogDone) return null;
 
+  const challenger = (s.motivationStyle || "").includes("Competition");
+  const identityDriven = (s.motivationStyle || "").includes("better version");
+  const missOneMissWeek = (s.failurePattern || "").includes("missed day");
+
   if (s.doneCount === 0 && !s.frogDone)
-    return { icon: "→", text: "Start small — finish one habit to get momentum going." };
+    return {
+      icon: "→",
+      text: challenger
+        ? "First move wins the day — beat yesterday's start time with one habit."
+        : "Start small — finish one habit to get momentum going.",
+    };
 
   if (!s.frogDone && s.nowMin < 14 * 60)
     return { icon: "🐸", text: "Eat the frog first. Your keystone task protects the whole day." };
@@ -34,10 +58,20 @@ export function pickSmartNudge(s: {
     return { icon: "🐸", text: "Your keystone task is still open — a good one to close before the day ends." };
 
   if (s.todayPct > 0 && s.todayPct < 50)
-    return { icon: "↑", text: "Pick the easiest habit next and recover the day." };
+    return {
+      icon: "↑",
+      text: identityDriven
+        ? "Each small habit is a vote for the person you're becoming — cast the next one."
+        : "Pick the easiest habit next and recover the day.",
+    };
 
   if (s.streak >= 1 && s.todayPct < 100)
-    return { icon: "🔥", text: `You're on a ${s.streak}-day streak — one quick win keeps it alive.` };
+    return {
+      icon: "🔥",
+      text: missOneMissWeek
+        ? `${s.streak}-day streak. You know your pattern — never miss twice. One quick win locks today in.`
+        : `You're on a ${s.streak}-day streak — one quick win keeps it alive.`,
+    };
 
   const needsAttention = s.insights.find((ins) => ins.startsWith("Needs attention:"));
   if (needsAttention) {

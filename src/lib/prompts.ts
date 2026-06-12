@@ -5,9 +5,9 @@
 
 import { buildModeBlock, type PlanMode } from "./planModes";
 
-export const PLAN_PROMPT_VERSION = "plan-v3";
+export const PLAN_PROMPT_VERSION = "plan-v3.1";
 export const REVIEW_PROMPT_VERSION = "review-v2";
-export const RECOVERY_PROMPT_VERSION = "recovery-v1";
+export const RECOVERY_PROMPT_VERSION = "recovery-v2";
 
 export function buildPlanPrompt(
   profile: any,
@@ -91,6 +91,7 @@ DESIGN PRINCIPLES (apply all):
 - Counter their failure pattern: design the habit cues and the lowEnergyFallback specifically to defeat the failure pattern they named (e.g. all-or-nothing → explicit minimum versions; fades by week 2 → week-2 escalation warning in aiPlanText; forgets → strong environmental cues).
 - Speak their motivation language: frame the identityStatement and aiPlanText in terms of what motivates them (streaks/data, identity, accountability, quick wins, or challenge).
 - Deliver their first-week win: the frog task or habit h1 must directly produce the first-week win they chose, within 7 days.
+- COHERENCE — one objective, zero competing targets: everything in the output serves the user's main goal through ONE keystone behavior. The frog task is today's lever on that goal; habits h1–h5 are the system that makes it inevitable; the dailyFlow is where those habits physically live (every habit appears in or anchors to a flow block); weeklyReviewFocus measures exactly that keystone behavior — not a different metric. Never introduce a side-quest target that competes with the main goal for the same hours.
 ${modeBlock}
 Return this exact JSON shape (all fields required):
 {
@@ -103,11 +104,11 @@ Return this exact JSON shape (all fields required):
       "category": "<one of: work | business | health | morning | evening>"
     },
     "habits": [
-      { "id": "h1", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>" },
-      { "id": "h2", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>" },
-      { "id": "h3", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>" },
-      { "id": "h4", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>" },
-      { "id": "h5", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>" }
+      { "id": "h1", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>", "why": "<max 8 words: how this habit serves their main goal>" },
+      { "id": "h2", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>", "why": "<max 8 words: how this habit serves their main goal>" },
+      { "id": "h3", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>", "why": "<max 8 words: how this habit serves their main goal>" },
+      { "id": "h4", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>", "why": "<max 8 words: how this habit serves their main goal>" },
+      { "id": "h5", "name": "<specific, measurable, cue-anchored habit>", "tag": "<morning|work|health|business|evening>", "why": "<max 8 words: how this habit serves their main goal>" }
     ],
     "dailyFlow": [
       { "time": "${t(0)}", "title": "Wake + Hydrate", "description": "16 oz water before anything else" },
@@ -133,6 +134,7 @@ Rules:
 - dailyFlow time must be HH:MM 24-hour format, kept in ascending order
 - the dailyFlow times above are defaults — shift them as needed so no block overlaps the user's fixed schedule, the frog lands in their peak focus window, and wind-down starts at least 60 minutes before their sleep time
 - habits array must have exactly 5 items with unique ids h1–h5
+- every habit's "why" must trace back to the main goal in the user's own language (max 8 words)
 - scale habits by difficulty to the user's tier — never return more or fewer than 5
 - every habit must be specific, measurable, and cue-anchored; no generic advice
 - never prescribe anything that violates the user's stated constraints
@@ -281,6 +283,11 @@ CURRENT SIGNALS:
 - Plan weekly focus: ${planFocus}
 ${latestInsight ? `- Last review note: "${latestInsight.slice(0, 300).replace(/\n/g, " ")}"` : ""}
 
+USER PSYCHOLOGY (from their assessment — use it):
+- Their typical failure pattern: ${profile?.failurePattern || "Not specified"}
+- Their biggest struggle: ${profile?.struggle || "Not specified"}
+- What keeps them going: ${profile?.motivationStyle || "Not specified"}
+
 MODE GUIDANCE: ${modeLine}
 
 Write a recovery brief using EXACTLY these section headers (all uppercase, each on its own line):
@@ -300,6 +307,8 @@ If things slip again today: one non-negotiable minimum action that keeps the str
 RULES:
 - Never say the user failed or is behind.
 - This is NOT a new full plan — it is a short recalibration.
+- If a failure pattern is specified, the FALLBACK RULE must directly counter it (e.g. "one missed day becomes a missed week" → a never-miss-twice rule; "all-or-nothing" → an explicit 2-minute minimum that still counts).
+- Frame encouragement in their motivation language (streaks, identity, accountability, quick wins, or challenge).
 - Use second person. Be direct and warm.
 - Keep the entire output between 150 and 220 words.`;
 }

@@ -5,10 +5,10 @@
 // (no userData / streamClaude / App import); ProgressRing & MacpLoader import from their own modules.
 import { useState, useEffect } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import { tierFor, makeTimeline, nowMinutes, makeHabits, pickSmartNudge, todayLabel, timeToMin } from "../../lib/helpers";
+import { tierFor, makeTimeline, nowMinutes, makeHabits, pickSmartNudge, todayLabel, timeToMin, peakWindowMeta } from "../../lib/helpers";
 import { ENERGY_LEVELS, DAY_ABBRS } from "../../lib/constants";
 import { buildRecoveryPrompt, RECOVERY_PROMPT_VERSION } from "../../lib/prompts";
-import { normalizePlanMode } from "../../lib/planModes";
+import { normalizePlanMode, getPlanModeMeta } from "../../lib/planModes";
 import { ProgressRing } from "./ProgressRing";
 import { MacpLoader } from "./MacpLoader";
 
@@ -22,6 +22,7 @@ export function Dashboard({ profile, setProfile, plan = null, supabase, userId, 
   const tier = tierFor(profile.week || 1);
 
   const pd = (plan as any)?.dashboard ?? null;
+  const aiBrief: string = typeof (plan as any)?.aiPlanText === "string" ? (plan as any).aiPlanText : "";
 
   const timeline = pd?.dailyFlow
     ? pd.dailyFlow.map((f: any) => ({
@@ -52,6 +53,7 @@ const [celebrate, setCelebrate] = useState(false);
   const [recoveryErr, setRecoveryErr] = useState("");
   const [recoveryQuotaInfo, setRecoveryQuotaInfo] = useState<QuotaInfo | null>(null);
   const [nudgeDismissed, setNudgeDismissed] = useState(false);
+  const [showBrief, setShowBrief] = useState(false);
   const progressSnapshot = () => {
     const activePlan = (plan || {}) as any;
   
@@ -359,6 +361,8 @@ const [celebrate, setCelebrate] = useState(false);
     energy,
     nowMin,
     insights: analytics.insights,
+    motivationStyle: profile.motivationStyle,
+    failurePattern: profile.failurePattern,
   });
   const weekDots =
   analytics.weekPcts?.length === 7
@@ -380,6 +384,42 @@ const currentPlanGeneratedLabel = currentPlanGeneratedAt
 const currentPlanReason =
   activePlan.plan_reason || (currentPlanVersion > 1 ? "Regenerated" : "Initial plan");
 const currentPlanContext = `${tier.label} · ${profile.situation || "MACP Plan"}`;
+
+// ── Personalization (onboarding v2 — all optional, old profiles fall back) ──
+const peak = peakWindowMeta(profile.peakFocusTime);
+const modeMeta = getPlanModeMeta(activePlan.plan_mode || profile.plan_mode);
+const identity = pd?.identityStatement || "";
+const weeklyFocus = pd?.weeklyReviewFocus || "";
+const firstWin = typeof profile.firstWin === "string" ? profile.firstWin.trim() : "";
+const scheduleNote =
+  typeof profile.scheduleText === "string" &&
+  profile.scheduleText.trim() &&
+  !/^none$/i.test(profile.scheduleText.trim())
+    ? profile.scheduleText.trim()
+    : "";
+
+// Now / Next — where the user is inside today's flow.
+const tlMins = timeline.map((item: any) => timeToMin(item.time));
+let nowIdx = -1;
+for (let i = 0; i < timeline.length; i++) {
+  const end = i + 1 < timeline.length ? tlMins[i + 1] : tlMins[i] + 60;
+  if (nowMin >= tlMins[i] && nowMin < end) { nowIdx = i; break; }
+}
+const nowItem = nowIdx >= 0 ? timeline[nowIdx] : null;
+const nextItem =
+  nowIdx >= 0
+    ? timeline[nowIdx + 1] || null
+    : timeline.find((_: any, i: number) => tlMins[i] > nowMin) || null;
+const dayDone = !nowItem && !nextItem && timeline.length > 0;
+
+const plannedAround = [
+  scheduleNote ? { l: "Fixed schedule", v: scheduleNote } : null,
+  profile.sleepTime ? { l: "Sleep by", v: profile.sleepTime } : null,
+  peak ? { l: "Peak focus", v: peak.label } : null,
+  profile.intensity ? { l: "Intensity", v: String(profile.intensity).charAt(0).toUpperCase() + String(profile.intensity).slice(1) } : null,
+  profile.constraints ? { l: "Constraints", v: profile.constraints } : null,
+  { l: "Mode", v: modeMeta.label },
+].filter(Boolean) as { l: string; v: string }[];
 
   const toggleHabit = (id) => {
     const wasChecked = checked[id];
@@ -453,6 +493,7 @@ const frogDesc =
               <span>{profile.name || "Champion"}</span>
             </div>
             <div className="dash-date">{todayLabel()}</div>
+            {identity && <div className="dash-identity">“{identity}”</div>}
           </div>
           <div style={{display:"flex",flexDirection:"column",alignItems:"flex-end",gap:10}}>
             <div className="tier-pill">
@@ -463,32 +504,45 @@ const frogDesc =
           </div>
           </div>
 
-          <div className="card current-plan-card fu fu1">
-          <div className="current-plan-body">
-            <div className="current-plan-top">
-              <div>
-                <div className="current-plan-eyebrow">Current plan</div>
-                <div className="current-plan-title">Plan v{currentPlanVersion}</div>
+          {/* Now / Next command strip — what to do right now, what's coming, when you peak */}
+          <div className="card now-strip fu fu1">
+            <div className="ns-seg">
+              <div className="ns-eyebrow">{dayDone ? "Day complete" : nowItem ? "Right now" : "Up first"}</div>
+              <div className="ns-title">
+                {dayDone
+                  ? "Wind down — you've run today's system"
+                  : nowItem
+                  ? nowItem.name
+                  : nextItem
+                  ? nextItem.name
+                  : "Plan your day"}
               </div>
-              <div className="current-plan-badge">{currentPlanReason}</div>
+              <div className="ns-sub">
+                {dayDone
+                  ? profile.sleepTime ? `Sleep by ${profile.sleepTime} to protect tomorrow` : "Protect tomorrow with an early night"
+                  : nowItem
+                  ? `${nowItem.time} · ${nowItem.note || ""}`
+                  : nextItem
+                  ? `starts at ${nextItem.time}`
+                  : ""}
+              </div>
             </div>
-
-            <div className="current-plan-meta-line">
-              <span className="current-plan-meta-item">
-                <span className="current-plan-meta-label">Generated</span>
-                <span className="current-plan-meta-value">{currentPlanGeneratedLabel}</span>
-              </span>
-              <span className="current-plan-meta-item">
-                <span className="current-plan-meta-label">Context</span>
-                <span className="current-plan-meta-value">{currentPlanContext}</span>
-              </span>
-              <span className="current-plan-meta-item">
-                <span className="current-plan-meta-label">Today</span>
-                <span className="current-plan-meta-value">Plan v{currentPlanVersion}</span>
-              </span>
-            </div>
+            {!dayDone && nowItem && nextItem && (
+              <div className="ns-seg ns-next">
+                <div className="ns-eyebrow">Up next</div>
+                <div className="ns-title">{nextItem.name}</div>
+                <div className="ns-sub">{nextItem.time}</div>
+              </div>
+            )}
+            {peak && !dayDone && (
+              <div className={`ns-peak ${nowMin >= peak.startMin && nowMin < peak.endMin ? "live" : ""}`}>
+                <span className="ns-peak-dot" />
+                {nowMin >= peak.startMin && nowMin < peak.endMin
+                  ? "Peak focus window — protect it"
+                  : `Peak focus ${peak.short}`}
+              </div>
+            )}
           </div>
-        </div>
 
 {/* Energy check-in */}
         {progressReady && !energy && (
@@ -617,6 +671,11 @@ const frogDesc =
                 <div className="frog-why">
                 {frogDesc}.
                 </div>
+                {peak && !frogDone && (
+                  <div className="frog-when">
+                    ◷ Best done {peak.short} — your peak focus window
+                  </div>
+                )}
                 <div className="frog-actions">
                   <button
                     className={`frog-done-btn ${frogDone?"done":""}`}
@@ -635,29 +694,43 @@ const frogDesc =
                 </div>
               </div>
             </div>
-            {plan?.aiPlanText && (
-  <div className="card fu fu3" style={{ marginBottom: 16 }}>
+            {(aiBrief || weeklyFocus || firstWin) && (
+  <div className="card mission-card fu fu3">
     <div className="card-hd">
       <div className="card-hd-l">
         <span className="card-icon">✦</span>
-        <span className="card-title">Your AI-Generated MACP Plan</span>
+        <span className="card-title">Why Today Matters</span>
       </div>
+      {aiBrief && (
+        <button className="card-action" onClick={() => setShowBrief(s => !s)}>
+          {showBrief ? "Hide full brief" : "Read full brief"}
+        </button>
+      )}
     </div>
 
     <div className="card-body">
-      <div
-        style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: ".78rem",
-          lineHeight: 1.75,
-          color: "var(--text-mid)",
-          whiteSpace: "pre-wrap",
-          maxHeight: 340,
-          overflowY: "auto",
-        }}
-      >
-        {plan.aiPlanText}
-      </div>
+      {profile.mainGoal && (
+        <div className="mission-goal">
+          <span className="mission-lbl">90-day goal</span>
+          <span className="mission-val">{profile.mainGoal}</span>
+        </div>
+      )}
+      {weeklyFocus && (
+        <div className="mission-goal">
+          <span className="mission-lbl">This week's focus</span>
+          <span className="mission-val">{weeklyFocus}</span>
+        </div>
+      )}
+      {firstWin && (profile.week || 1) <= 2 && (
+        <div className="mission-goal">
+          <span className="mission-lbl">Your first win</span>
+          <span className="mission-val">{firstWin}</span>
+        </div>
+      )}
+
+      {showBrief && aiBrief && (
+        <div className="mission-brief">{aiBrief}</div>
+      )}
     </div>
   </div>
 )}
@@ -677,7 +750,10 @@ const frogDesc =
                       <div className={`hcheck ${checked[h.id]?"done":""}`} onClick={()=>toggleHabit(h.id)}>
                         {checked[h.id]?"✓":""}
                       </div>
-                      <div className={`hname ${checked[h.id]?"done":""}`}>{h.name}</div>
+                      <div className={`hname ${checked[h.id]?"done":""}`}>
+                        {h.name}
+                        {h.why && <div className="habit-why">{h.why}</div>}
+                      </div>
                       <span className={`htag htag-${h.tag}`}>{h.tag}</span>
                       {h.custom && (
                         <button className="hdel" onClick={()=>removeHabit(h.id)}>✕</button>
@@ -750,8 +826,8 @@ const frogDesc =
               </div>
             )}
 
-            {/* Recovery brief — shown only when off track and user requests it */}
-            {(analytics.weekCompletion < 60 || analytics.streak === 0 || !frogDone) && (
+            {/* Recovery brief — shown only when the logged week is actually off pace */}
+            {analytics.savedThisWeek > 0 && (analytics.weekCompletionLogged < 60 || analytics.streak === 0) && (
               <div className="card fu fu5" style={{ borderColor: "rgba(58,124,191,0.3)", background: "rgba(58,124,191,0.04)" }}>
                 <div className="card-hd">
                   <div className="card-hd-l">
@@ -763,7 +839,9 @@ const frogDesc =
                   {!recoveryText && !recoveryLoading && !recoveryErr && (
                     <>
                       <p style={{ fontSize: ".84rem", color: "var(--text-mid)", marginBottom: 12, lineHeight: 1.6 }}>
-                        This week looks a little off pace. Get a short, actionable recovery brief to recalibrate.
+                        {profile.failurePattern
+                          ? <>This week looks a little off pace. You told MACP your pattern is <strong>“{String(profile.failurePattern).toLowerCase()}”</strong> — this brief is built to break it.</>
+                          : "This week looks a little off pace. Get a short, actionable recovery brief to recalibrate."}
                       </p>
                       <button className="btn btn-ghost" style={{ fontSize: ".82rem" }} onClick={generateRecoveryBrief}>
                         ↺ Get recovery brief
@@ -828,13 +906,63 @@ const frogDesc =
                           {i<timeline.length-1 && <div className={`tl-line ${isPast?"past":""}`}/>}
                         </div>
                         <div className="tl-content">
-                          <div className="tl-time" style={isNow?{color:"var(--amber)"}:{}}>{item.time}</div>
+                          <div className="tl-time" style={isNow?{color:"var(--amber)"}:{}}>
+                            {item.time}
+                            {peak && itemMin >= peak.startMin && itemMin < peak.endMin && (
+                              <span className="tl-peak">peak</span>
+                            )}
+                          </div>
                           <div className="tl-name" style={isNow?{color:"var(--text)",fontWeight:700}:isPast?{color:"var(--text-dim)"}:{}}>{item.name}</div>
                           <div className="tl-note">{item.note}</div>
                         </div>
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            </div>
+
+            {/* Planned around you — proof the system respects their real life */}
+            {plannedAround.length > 0 && (
+              <div className="card fu fu4">
+                <div className="card-hd">
+                  <div className="card-hd-l">
+                    <span className="card-icon">🧭</span>
+                    <span className="card-title">Planned Around You</span>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="pa-list">
+                    {plannedAround.map((row) => (
+                      <div key={row.l} className="pa-row">
+                        <span className="pa-lbl">{row.l}</span>
+                        <span className="pa-val">{row.v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Current plan — provenance, demoted from the hero slot */}
+            <div className="card current-plan-card fu fu5">
+              <div className="current-plan-body">
+                <div className="current-plan-top">
+                  <div>
+                    <div className="current-plan-eyebrow">Current plan</div>
+                    <div className="current-plan-title">Plan v{currentPlanVersion}</div>
+                  </div>
+                  <div className="current-plan-badge">{currentPlanReason}</div>
+                </div>
+                <div className="current-plan-meta-line">
+                  <span className="current-plan-meta-item">
+                    <span className="current-plan-meta-label">Generated</span>
+                    <span className="current-plan-meta-value">{currentPlanGeneratedLabel}</span>
+                  </span>
+                  <span className="current-plan-meta-item">
+                    <span className="current-plan-meta-label">Context</span>
+                    <span className="current-plan-meta-value">{currentPlanContext}</span>
+                  </span>
                 </div>
               </div>
             </div>
